@@ -1,4 +1,21 @@
 import React, { useState } from 'react';
+
+import moveDefault from '@/assets/move-default.svg';
+import moveHover from '@/assets/move-hover.svg';
+import moveActive from '@/assets/move-active.svg';
+import drawDefault from '@/assets/draw-default.svg';
+import drawHover from '@/assets/draw-hover.svg';
+import drawActive from '@/assets/draw-active.svg';
+import shapeDefault from '@/assets/shape-default.svg';
+import shapeHover from '@/assets/shape-hover.svg';
+import shapeActive from '@/assets/shape-active.svg';
+import textDefault from '@/assets/text-default.svg';
+import textHover from '@/assets/text-hover.svg';
+import textActive from '@/assets/text-active.svg';
+import colorDefault from '@/assets/color-default.svg';
+import colorHover from '@/assets/color-hover.svg';
+import colorActive from '@/assets/color-active.svg';
+
 interface SidebarProps {
   onToolSelect?: (toolId: string) => void;
 }
@@ -8,33 +25,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [selectedTool, setSelectedTool] = useState<string>('');
   const tools = [{
     id: 'move',
-    defaultIcon: encodeURI('/Property 1=Move_Default.svg'),
-    hoverIcon: encodeURI('/Property 1=Variant48.svg'),
-    activeIcon: encodeURI('/Property 1=Variant52.svg'),
+    defaultIcon: moveDefault,
+    hoverIcon: moveHover,
+    activeIcon: moveActive,
     label: 'Move'
   }, {
     id: 'draw',
-    defaultIcon: encodeURI('/Property 1=Draw_Default.svg'),
-    hoverIcon: encodeURI('/Property 1=Variant47.svg'),
-    activeIcon: encodeURI('/Property 1=Variant51.svg'),
+    defaultIcon: drawDefault,
+    hoverIcon: drawHover,
+    activeIcon: drawActive,
     label: 'Draw'
   }, {
     id: 'shape',
-    defaultIcon: encodeURI('/Property 1=Shape_Default.svg'),
-    hoverIcon: encodeURI('/Property 1=Variant46.svg'),
-    activeIcon: encodeURI('/Property 1=Variant50.svg'),
+    defaultIcon: shapeDefault,
+    hoverIcon: shapeHover,
+    activeIcon: shapeActive,
     label: 'Shape'
   }, {
     id: 'text',
-    defaultIcon: encodeURI('/Property 1=Text_Default.svg'),
-    hoverIcon: encodeURI('/Property 1=Variant45.svg'),
-    activeIcon: encodeURI('/Property 1=Variant49.svg'),
+    defaultIcon: textDefault,
+    hoverIcon: textHover,
+    activeIcon: textActive,
     label: 'Text'
   }, {
     id: 'color',
-    defaultIcon: encodeURI('/Property 1=Variant53.svg'),
-    hoverIcon: encodeURI('/Property 1=Variant54.svg'),
-    activeIcon: encodeURI('/Property 1=Variant55.svg'),
+    defaultIcon: colorDefault,
+    hoverIcon: colorHover,
+    activeIcon: colorActive,
     label: 'Color'
   }];
   const handleToolSelect = (toolId: string) => {
