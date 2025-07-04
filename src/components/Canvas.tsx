@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { ImageEditor } from './ImageEditor';
 
 interface CanvasProps {
   className?: string;
@@ -20,6 +21,15 @@ interface ImageObject {
   y: number;
   width: number;
   height: number;
+  rotation: number;
+}
+
+interface Handle {
+  id: string;
+  x: number;
+  y: number;
+  type: 'corner' | 'side' | 'rotate';
+  position: 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'e' | 'w' | 'rotate';
 }
 
 export const Canvas: React.FC<CanvasProps> = ({ className = '', canvasMode = true, brushMode = false, onImageImport }) => {
@@ -33,6 +43,7 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', canvasMode = tru
   const [currentPath, setCurrentPath] = useState<{ x: number; y: number }[]>([]);
   const [drawnPaths, setDrawnPaths] = useState<DrawnPath[]>([]);
   const [images, setImages] = useState<ImageObject[]>([]);
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
 
   // Convert screen coordinates to canvas coordinates
   const screenToCanvas = useCallback((screenX: number, screenY: number) => {
@@ -42,7 +53,30 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', canvasMode = tru
     };
   }, [transform]);
 
+  // Image selection and manipulation handlers
+  const handleImageSelect = useCallback((imageId: string) => {
+    setSelectedImageId(imageId);
+  }, []);
+
+  const handleImageUpdate = useCallback((updatedImage: ImageObject) => {
+    setImages(prev => prev.map(img => 
+      img.id === updatedImage.id ? updatedImage : img
+    ));
+  }, []);
+
+  const handleCanvasClick = useCallback((e: React.MouseEvent) => {
+    // Only deselect if clicking on canvas background
+    if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('canvas-background')) {
+      setSelectedImageId(null);
+    }
+  }, []);
+
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    // Don't interfere with image interactions
+    if (selectedImageId && (e.target as HTMLElement).closest('.image-editor')) {
+      return;
+    }
+
     if (brushMode) {
       setIsDrawing(true);
       const canvasPoint = screenToCanvas(e.clientX, e.clientY);
@@ -54,7 +88,7 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', canvasMode = tru
     setIsDragging(true);
     setDragStart({ x: e.clientX, y: e.clientY });
     setLastTransform({ x: transform.x, y: transform.y });
-  }, [transform.x, transform.y, canvasMode, brushMode, screenToCanvas]);
+  }, [transform.x, transform.y, canvasMode, brushMode, screenToCanvas, selectedImageId]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (brushMode && isDrawing) {
@@ -178,7 +212,8 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', canvasMode = tru
             x: 100,
             y: 100,
             width: img.width,
-            height: img.height
+            height: img.height,
+            rotation: 0
           };
           console.log('Canvas: Adding new image to state:', newImage);
           setImages(prev => [...prev, newImage]);
@@ -238,6 +273,7 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', canvasMode = tru
       ref={canvasRef}
       className={`fixed inset-0 z-0 overflow-hidden ${getCursorClass()} ${className}`}
       onMouseDown={handleMouseDown}
+      onClick={handleCanvasClick}
       style={{ userSelect: 'none' }}
     >
       {/* Infinite grid background with 10% visibility */}
@@ -257,24 +293,18 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', canvasMode = tru
         }}
       />
 
-      {/* Images */}
-      {images.map(img => {
-        console.log('Canvas: Rendering image:', img.id, 'at position:', img.x, img.y);
-        return (
-          <img
-            key={img.id}
-            src={img.src}
-            className="absolute pointer-events-none"
-            style={{
-              left: img.x * transform.scale + transform.x,
-              top: img.y * transform.scale + transform.y,
-              width: img.width * transform.scale,
-              height: img.height * transform.scale,
-            }}
-            alt="Imported"
-          />
-        );
-      })}
+      {/* Images with Selection and Manipulation */}
+      {images.map(img => (
+        <ImageEditor
+          key={img.id}
+          image={img}
+          isSelected={selectedImageId === img.id}
+          transform={transform}
+          onSelect={handleImageSelect}
+          onUpdate={handleImageUpdate}
+          onDeselect={() => setSelectedImageId(null)}
+        />
+      ))}
       
       {/* Drawing canvas for brush tool */}
       <canvas
