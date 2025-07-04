@@ -1,6 +1,5 @@
 
 import React, { useState } from 'react';
-import { Header } from '@/components/Header';
 import { Sidebar } from '@/components/Sidebar';
 import { GenerationPanel } from '@/components/GenerationPanel';
 import { ModePanel } from '@/components/ModePanel';
@@ -20,11 +19,7 @@ const Index = () => {
       <Sidebar onToolSelect={handleToolSelect} />
       
       {/* UI Overlay - above canvas */}
-      <div className="relative z-10 flex flex-col pl-[37px] pr-20 py-[34px] min-h-screen max-md:px-5 pointer-events-none">
-        <div className="pointer-events-auto">
-          <Header />
-        </div>
-        
+      <div className="relative z-10 flex flex-col pl-[37px] pr-20 py-[34px] min-h-screen max-md:px-5 pointer-events-none">        
         <div className="flex flex-1 relative">
           <div className="flex-1" />
           
