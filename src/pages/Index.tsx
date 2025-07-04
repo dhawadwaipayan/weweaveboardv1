@@ -4,6 +4,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { GenerationPanel } from '@/components/GenerationPanel';
 import { ModePanel } from '@/components/ModePanel';
 import { Canvas } from '@/components/Canvas';
+import { TopBar } from '@/components/TopBar';
 
 const Index = () => {
   const handleToolSelect = (toolId: string) => {
@@ -19,7 +20,12 @@ const Index = () => {
       <Sidebar onToolSelect={handleToolSelect} />
       
       {/* UI Overlay - above canvas */}
-      <div className="relative z-10 flex flex-col pl-[37px] pr-20 py-[34px] min-h-screen max-md:px-5 pointer-events-none">        
+      <div className="relative z-10 flex flex-col pl-[37px] pr-20 py-[34px] min-h-screen max-md:px-5 pointer-events-none">
+        {/* Top Bar - positioned top left */}
+        <div className="absolute top-[34px] left-[37px] pointer-events-auto">
+          <TopBar />
+        </div>
+        
         <div className="flex flex-1 relative">
           <div className="flex-1" />
           
