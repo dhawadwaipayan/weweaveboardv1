@@ -3,7 +3,7 @@ import { SketchSubBar } from './SketchSubBar';
 import { RenderSubBar } from './RenderSubBar';
 
 export const ModePanel: React.FC = () => {
-  const [selectedMode, setSelectedMode] = useState<string>('sketch');
+  const [selectedMode, setSelectedMode] = useState<string>('');
   const [showSketchSubBar, setShowSketchSubBar] = useState(false);
   const [showRenderSubBar, setShowRenderSubBar] = useState(false);
   const modes = [{
