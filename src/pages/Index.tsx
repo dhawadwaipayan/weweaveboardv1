@@ -22,7 +22,7 @@ const Index = () => {
       {/* UI Overlay - above canvas */}
       <div className="relative z-10 flex flex-col pl-[37px] pr-20 py-[34px] min-h-screen max-md:px-5 pointer-events-none">
         {/* Top Bar - positioned top left */}
-        <div className="absolute top-[34px] left-[37px] pointer-events-auto">
+        <div className="absolute top-[34px] left-6 pointer-events-auto">
           <TopBar />
         </div>
         
