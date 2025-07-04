@@ -4,6 +4,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { GenerationPanel } from '@/components/GenerationPanel';
 import { ModePanel } from '@/components/ModePanel';
 import { Canvas } from '@/components/Canvas';
+import { TopBar } from '@/components/TopBar';
 
 const Index = () => {
   const handleToolSelect = (toolId: string) => {
@@ -14,6 +15,9 @@ const Index = () => {
     <main className="bg-[rgba(33,33,33,1)] flex flex-col overflow-hidden min-h-screen relative">
       {/* Canvas Background - behind everything */}
       <Canvas />
+      
+      {/* Top Bar - fixed in top right corner */}
+      <TopBar />
       
       {/* Sidebar - positioned center left */}
       <Sidebar onToolSelect={handleToolSelect} />
