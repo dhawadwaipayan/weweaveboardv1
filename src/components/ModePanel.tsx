@@ -57,83 +57,124 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
   // Bounding box state for Sketch mode
   const [sketchBoundingBox, setSketchBoundingBox] = useState<{ left: number, top: number, width: number, height: number } | null>(null);
   const boundingBoxRef = useRef<any>(null);
+  const boundingBoxDrawing = useRef(false);
+  const boundingBoxStart = useRef<{ x: number, y: number } | null>(null);
 
-  // Add bounding box when entering Sketch mode
+  // Add bounding box by user drag when entering Sketch mode
   useEffect(() => {
     if (!showSketchSubBar || !canvasRef.current) return;
     const fabricCanvas = canvasRef.current.getFabricCanvas();
     if (!fabricCanvas) return;
-    // If bounding box already exists, do nothing
-    if (boundingBoxRef.current) return;
-    // Create a default bounding box in the center
-    const defaultWidth = 300;
-    const defaultHeight = 300;
-    const defaultLeft = (fabricCanvas.getWidth() - defaultWidth) / 2;
-    const defaultTop = (fabricCanvas.getHeight() - defaultHeight) / 2;
-    const rect = new fabric.Rect({
-      left: defaultLeft,
-      top: defaultTop,
-      width: defaultWidth,
-      height: defaultHeight,
-      fill: 'rgba(0,0,0,0.0)',
-      stroke: '#E1FF00',
-      strokeWidth: 2,
-      selectable: true,
-      hasBorders: true,
-      hasControls: true,
-      lockRotation: true,
-      objectCaching: false,
-      name: 'sketch-bounding-box',
-      evented: true,
-    });
-    rect.setControlsVisibility({ mtr: false }); // Hide rotation control
-    fabricCanvas.add(rect);
-    fabricCanvas.setActiveObject(rect);
-    boundingBoxRef.current = rect;
-    setSketchBoundingBox({ left: defaultLeft, top: defaultTop, width: defaultWidth, height: defaultHeight });
-    // Listen for changes
-    rect.on('modified', () => {
-      setSketchBoundingBox({
-        left: rect.left ?? 0,
-        top: rect.top ?? 0,
-        width: rect.width! * (rect.scaleX ?? 1),
-        height: rect.height! * (rect.scaleY ?? 1),
-      });
-    });
-    rect.on('moving', () => {
-      setSketchBoundingBox({
-        left: rect.left ?? 0,
-        top: rect.top ?? 0,
-        width: rect.width! * (rect.scaleX ?? 1),
-        height: rect.height! * (rect.scaleY ?? 1),
-      });
-    });
-    rect.on('scaling', () => {
-      setSketchBoundingBox({
-        left: rect.left ?? 0,
-        top: rect.top ?? 0,
-        width: rect.width! * (rect.scaleX ?? 1),
-        height: rect.height! * (rect.scaleY ?? 1),
-      });
-    });
-    return () => {
-      if (boundingBoxRef.current) {
-        fabricCanvas.remove(boundingBoxRef.current);
-        boundingBoxRef.current = null;
-      }
-    };
-  }, [showSketchSubBar, canvasRef]);
-
-  // Remove bounding box when leaving Sketch mode
-  useEffect(() => {
-    if (!canvasRef.current) return;
-    const fabricCanvas = canvasRef.current.getFabricCanvas();
-    if (!fabricCanvas) return;
-    if (!showSketchSubBar && boundingBoxRef.current) {
+    // Remove any existing bounding box
+    if (boundingBoxRef.current) {
       fabricCanvas.remove(boundingBoxRef.current);
       boundingBoxRef.current = null;
       setSketchBoundingBox(null);
     }
+    // Set crosshair cursor
+    fabricCanvas.defaultCursor = 'crosshair';
+    // Mouse event handlers
+    const handleMouseDown = (opt: any) => {
+      if (boundingBoxDrawing.current) return;
+      boundingBoxDrawing.current = true;
+      const pointer = fabricCanvas.getPointer(opt.e);
+      boundingBoxStart.current = { x: pointer.x, y: pointer.y };
+      // Create a temp rect
+      const rect = new fabric.Rect({
+        left: pointer.x,
+        top: pointer.y,
+        width: 1,
+        height: 1,
+        fill: 'rgba(0,0,0,0.0)',
+        stroke: '#E1FF00',
+        strokeWidth: 2,
+        selectable: false,
+        hasBorders: false,
+        hasControls: false,
+        lockRotation: true,
+        objectCaching: false,
+        name: 'sketch-bounding-box',
+        evented: false,
+      });
+      fabricCanvas.add(rect);
+      boundingBoxRef.current = rect;
+    };
+    const handleMouseMove = (opt: any) => {
+      if (!boundingBoxDrawing.current || !boundingBoxRef.current || !boundingBoxStart.current) return;
+      const pointer = fabricCanvas.getPointer(opt.e);
+      const startX = boundingBoxStart.current.x;
+      const startY = boundingBoxStart.current.y;
+      const left = Math.min(startX, pointer.x);
+      const top = Math.min(startY, pointer.y);
+      const width = Math.abs(pointer.x - startX);
+      const height = Math.abs(pointer.y - startY);
+      boundingBoxRef.current.set({ left, top, width, height });
+      fabricCanvas.renderAll();
+    };
+    const handleMouseUp = () => {
+      if (!boundingBoxDrawing.current || !boundingBoxRef.current) return;
+      boundingBoxDrawing.current = false;
+      boundingBoxStart.current = null;
+      // Finalize the bounding box
+      boundingBoxRef.current.set({
+        selectable: true,
+        hasBorders: true,
+        hasControls: true,
+        evented: true,
+      });
+      boundingBoxRef.current.setControlsVisibility({ mtr: false });
+      fabricCanvas.setActiveObject(boundingBoxRef.current);
+      setSketchBoundingBox({
+        left: boundingBoxRef.current.left ?? 0,
+        top: boundingBoxRef.current.top ?? 0,
+        width: boundingBoxRef.current.width! * (boundingBoxRef.current.scaleX ?? 1),
+        height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
+      });
+      // Listen for changes
+      boundingBoxRef.current.on('modified', () => {
+        setSketchBoundingBox({
+          left: boundingBoxRef.current.left ?? 0,
+          top: boundingBoxRef.current.top ?? 0,
+          width: boundingBoxRef.current.width! * (boundingBoxRef.current.scaleX ?? 1),
+          height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
+        });
+      });
+      boundingBoxRef.current.on('moving', () => {
+        setSketchBoundingBox({
+          left: boundingBoxRef.current.left ?? 0,
+          top: boundingBoxRef.current.top ?? 0,
+          width: boundingBoxRef.current.width! * (boundingBoxRef.current.scaleX ?? 1),
+          height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
+        });
+      });
+      boundingBoxRef.current.on('scaling', () => {
+        setSketchBoundingBox({
+          left: boundingBoxRef.current.left ?? 0,
+          top: boundingBoxRef.current.top ?? 0,
+          width: boundingBoxRef.current.width! * (boundingBoxRef.current.scaleX ?? 1),
+          height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
+        });
+      });
+      // Remove listeners after creation
+      fabricCanvas.off('mouse:down', handleMouseDown);
+      fabricCanvas.off('mouse:move', handleMouseMove);
+      fabricCanvas.off('mouse:up', handleMouseUp);
+      fabricCanvas.defaultCursor = 'default';
+    };
+    fabricCanvas.on('mouse:down', handleMouseDown);
+    fabricCanvas.on('mouse:move', handleMouseMove);
+    fabricCanvas.on('mouse:up', handleMouseUp);
+    return () => {
+      fabricCanvas.off('mouse:down', handleMouseDown);
+      fabricCanvas.off('mouse:move', handleMouseMove);
+      fabricCanvas.off('mouse:up', handleMouseUp);
+      fabricCanvas.defaultCursor = 'default';
+      if (boundingBoxRef.current) {
+        fabricCanvas.remove(boundingBoxRef.current);
+        boundingBoxRef.current = null;
+      }
+      setSketchBoundingBox(null);
+    };
   }, [showSketchSubBar, canvasRef]);
 
   const handleSketchGenerate = async (details: string) => {
