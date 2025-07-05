@@ -65,43 +65,46 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
       return;
     }
     const selectedObjects = fabricCanvas.getActiveObjects();
-    // Prepare input for OpenAI
-    let annotationText: string = '';
-    let hasVisual = false;
-    // Check if any selected object is visual (image, path, shape, etc.)
-    selectedObjects.forEach(obj => {
-      if (obj.type === 'i-text' || obj.type === 'text') {
-        annotationText += (obj as any).text + ' ';
-      } else {
-        hasVisual = true;
-      }
-    });
-    if (!hasVisual) {
-      alert('Please select at least one visual object (image, stroke, or shape) for AI generation.');
-      return;
-    }
+    // Debug: log selected objects and their types
+    console.log('Selected objects for rasterization:', selectedObjects.map(obj => ({ type: obj.type, obj })));
     // Rasterize selected objects to PNG
-    // 1. Clone selected objects (only those with .clone)
-    const cloneableObjects = selectedObjects.filter(obj => typeof (obj as any).clone === 'function');
-    if (cloneableObjects.length === 0) {
-      alert('No cloneable visual objects selected for AI generation.');
-      return;
-    }
-    const clones = await Promise.all(cloneableObjects.map(obj => new Promise<any>(resolve => {
-      try {
-        (obj as any).clone(resolve);
-      } catch (e) {
-        console.warn('Failed to clone object:', obj, e);
-        resolve(null);
+    // 1. Clone or copy selected objects
+    const fabricNS = (window as any).fabric;
+    const clones: any[] = [];
+    for (const obj of selectedObjects) {
+      if (typeof (obj as any).clone === 'function') {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const clone = await new Promise<any>(resolve => (obj as any).clone(resolve));
+          clones.push(clone);
+        } catch (e) {
+          console.warn('Failed to clone object:', obj, e);
+        }
+      } else if (typeof (obj as any).toObject === 'function' && fabricNS && fabricNS.util && fabricNS.util.object && typeof fabricNS.util.object.cloneDeep === 'function') {
+        try {
+          // Deep copy the object and re-create it
+          const objData = (obj as any).toObject();
+          const klass = fabricNS.util.getKlass(obj.type, fabricNS);
+          if (klass && typeof klass.fromObject === 'function') {
+            // eslint-disable-next-line no-await-in-loop
+            const copy = await new Promise<any>(resolve => klass.fromObject(objData, resolve));
+            clones.push(copy);
+          } else {
+            console.warn('No klass.fromObject for type:', obj.type);
+          }
+        } catch (e) {
+          console.warn('Failed to copy object via toObject:', obj, e);
+        }
+      } else {
+        console.warn('Object is not cloneable or copyable:', obj);
       }
-    })));
-    const validClones = clones.filter(Boolean);
-    if (validClones.length === 0) {
+    }
+    if (clones.length === 0) {
       alert('Failed to rasterize any selected objects for AI generation.');
       return;
     }
     // 2. Calculate bounding box
-    const bounds = cloneableObjects.reduce((acc, obj) => {
+    const bounds = clones.reduce((acc, obj) => {
       const left = obj.left ?? 0;
       const top = obj.top ?? 0;
       const width = obj.width ? obj.width * (obj.scaleX ?? 1) : 0;
@@ -116,9 +119,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
     const width = Math.ceil(bounds.maxX - bounds.minX);
     const height = Math.ceil(bounds.maxY - bounds.minY);
     // 3. Create temp canvas
-    const fabricNS = (window as any).fabric;
     const tempCanvas = new fabricNS.Canvas(null, { width, height, backgroundColor: '#fff' });
-    validClones.forEach((obj: any) => {
+    clones.forEach((obj: any) => {
       obj.set({ left: (obj.left ?? 0) - bounds.minX, top: (obj.top ?? 0) - bounds.minY });
       tempCanvas.add(obj);
     });
@@ -126,6 +128,13 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
     // 4. Export to base64 PNG
     const base64Image = tempCanvas.toDataURL({ format: 'png' });
     tempCanvas.dispose();
+    // Prepare input for OpenAI
+    let annotationText: string = '';
+    selectedObjects.forEach(obj => {
+      if (obj.type === 'i-text' || obj.type === 'text') {
+        annotationText += (obj as any).text + ' ';
+      }
+    });
     const promptText = `Generate Image by redoing the flat sketch in the same style, incorporating the prompts indicated in the image. ${annotationText.trim()} ${details}`.trim();
     try {
       const result = await callOpenAIGptImage({
