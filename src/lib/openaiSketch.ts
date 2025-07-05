@@ -7,19 +7,12 @@ export async function callOpenAIGptImage({
   base64Image: string,
   promptText: string
 }) {
-  // Get API key from localStorage (manually entered by user)
-  const apiKey = localStorage.getItem('OPENAI_API_KEY');
-  
-  if (!apiKey) {
-    throw new Error("OpenAI API key not found. Please enter your API key in the sidebar.");
-  }
-
   const response = await fetch("/api/sketch-ai", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ base64Image, promptText, apiKey })
+    body: JSON.stringify({ base64Image, promptText })
   });
   
   if (!response.ok) {

@@ -5,20 +5,16 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { base64Image, promptText, apiKey } = req.body || {};
+  const { base64Image, promptText } = req.body || {};
+  const apiKey = process.env.OPENAI_API_KEY;
   
-  console.log('Request body received:', {
-    hasBase64Image: !!base64Image,
-    base64ImageLength: base64Image && base64Image.length,
-    hasPromptText: !!promptText,
-    promptText,
-    hasApiKey: !!apiKey,
-    apiKeyLength: apiKey && apiKey.length
-  });
-
-  if (!base64Image || !promptText || !apiKey) {
-    console.log('Missing required fields:', { base64Image: !!base64Image, promptText: !!promptText, apiKey: !!apiKey });
-    return res.status(400).json({ error: 'Missing base64Image, promptText, or apiKey' });
+  if (!base64Image || !promptText) {
+    console.log('Missing required fields:', { base64Image: !!base64Image, promptText: !!promptText });
+    return res.status(400).json({ error: 'Missing base64Image or promptText' });
+  }
+  if (!apiKey) {
+    console.log('Missing OPENAI_API_KEY in environment variables');
+    return res.status(500).json({ error: 'OpenAI API key not configured on server.' });
   }
 
   try {
