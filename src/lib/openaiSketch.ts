@@ -8,7 +8,7 @@ export async function callOpenAIGptImage({
   promptText: string
 }) {
   // Get API key from localStorage (manually entered by user)
-  const apiKey = localStorage.getItem('openai_api_key');
+  const apiKey = localStorage.getItem('OPENAI_API_KEY');
   
   if (!apiKey) {
     throw new Error("OpenAI API key not found. Please enter your API key in the sidebar.");
