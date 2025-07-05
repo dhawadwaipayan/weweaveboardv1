@@ -98,8 +98,24 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
         promptText
       });
       console.log('OpenAI API full response:', result);
-      // Handle partial image first
-      let partialImgObj: any = null;
+      // Extract base64 image from OpenAI response
+      let base64 = null;
+      if (result && Array.isArray(result.output)) {
+        const imageOutput = result.output.find(
+          (item) => item.type === 'image_generation_call' && item.result
+        );
+        if (imageOutput) {
+          base64 = imageOutput.result;
+        }
+      }
+      if (!base64) {
+        setAiStatus('error');
+        setAiError('No image returned from OpenAI.');
+        setTimeout(() => setAiStatus('idle'), 4000);
+        alert('No image returned from OpenAI.');
+        return;
+      }
+      const imageUrl = `data:image/png;base64,${base64}`;
       let x = 100, y = 100;
       if (selectedObjects.length > 0) {
         // Place to the right of the rightmost selected object
@@ -118,31 +134,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
         x = bounds.maxX + 40; // 40px gap
         y = bounds.minY;
       }
-      // Try to get partial image
-      const partialUrl = result?.data?.partial_images?.[0]?.url || result?.partial_images?.[0]?.url;
-      if (partialUrl) {
-        partialImgObj = await FabricImage.fromURL(partialUrl);
-        partialImgObj.set({
-          left: x,
-          top: y,
-          scaleX: 0.5,
-          scaleY: 0.5,
-          selectable: true,
-          evented: true
-        });
-        fabricCanvas.add(partialImgObj);
-        fabricCanvas.renderAll();
-      }
-      // Now get the final image
-      const generatedImageUrl = result?.data?.image_url || result?.image_url || result?.data?.[0]?.url;
-      if (!generatedImageUrl) {
-        setAiStatus('error');
-        setAiError('No image returned from OpenAI.');
-        setTimeout(() => setAiStatus('idle'), 4000);
-        alert('No image returned from OpenAI.');
-        return;
-      }
-      const finalImgObj = await FabricImage.fromURL(generatedImageUrl);
+      const finalImgObj = await FabricImage.fromURL(imageUrl);
       finalImgObj.set({
         left: x,
         top: y,
@@ -151,9 +143,6 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
         selectable: true,
         evented: true
       });
-      if (partialImgObj) {
-        fabricCanvas.remove(partialImgObj);
-      }
       fabricCanvas.add(finalImgObj);
       fabricCanvas.renderAll();
       setAiStatus('success');
