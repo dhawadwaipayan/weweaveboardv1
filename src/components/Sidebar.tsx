@@ -34,7 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onToolSelect?.(toolId);
     console.log(`Selected tool: ${toolId}`);
   };
-  return <aside className="fixed left-6 top-1/2 transform -translate-y-1/2 z-20 w-[45px] bg-[#1a1a1a] border border-[#373737] rounded-xl p-3 flex flex-col gap-2 px-[3px]">
+  return <aside className="fixed left-6 top-1/2 transform -translate-y-1/2 z-20 w-[45px] bg-[#1a1a1a] border border-[#373737] rounded-xl p-3 flex flex-col gap-6 items-center">
       {tools.map(tool => {
         const IconComponent = tool.icon;
         const isActive = selectedTool === tool.id;
@@ -44,11 +44,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button 
             key={tool.id} 
             onClick={() => handleToolSelect(tool.id)} 
-            className="group flex items-center justify-center w-[24px] h-[24px] rounded-lg hover:bg-[#2a2a2a] transition-colors duration-75" 
+            className="group flex items-center justify-center w-[30px] h-[30px] rounded-lg hover:bg-[#2a2a2a] transition-colors duration-75" 
             title={tool.label}
           >
             <IconComponent 
-              size={16} 
+              size={30} 
               color={iconColor}
               className="group-hover:text-white transition-colors duration-75"
               style={{ color: isActive ? '#E1FF00' : undefined }}
