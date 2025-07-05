@@ -65,6 +65,10 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
 
     // Clear any existing temporary states
     setIsCreatingFrame(false);
+    setIsPanning(false);
+
+    // Remove ALL event handlers to prevent conflicts
+    fabricCanvas.off();
 
     // Reset canvas state
     fabricCanvas.isDrawingMode = false;
@@ -75,43 +79,84 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
     // Configure canvas based on selected tool
     switch (selectedTool) {
       case 'draw':
-        console.log('Activating drawing mode');
+        console.log('Activating drawing mode - ISOLATING ALL OTHER FEATURES');
         fabricCanvas.isDrawingMode = true;
         fabricCanvas.selection = false;
         fabricCanvas.hoverCursor = 'crosshair';
         fabricCanvas.moveCursor = 'crosshair';
+        
+        // Disable ALL object interactions during drawing
+        fabricCanvas.forEachObject((obj) => {
+          obj.selectable = false;
+          obj.evented = false;
+        });
+        
         // Ensure brush is properly configured
         if (fabricCanvas.freeDrawingBrush) {
           fabricCanvas.freeDrawingBrush.color = '#FF0000';
           fabricCanvas.freeDrawingBrush.width = 3;
         }
         break;
+        
       case 'select':
         console.log('Activating select mode');
         fabricCanvas.selection = true;
         fabricCanvas.hoverCursor = 'move';
         fabricCanvas.moveCursor = 'move';
+        
+        // Re-enable object interactions
+        fabricCanvas.forEachObject((obj) => {
+          obj.selectable = true;
+          obj.evented = true;
+        });
         break;
+        
       case 'hand':
         console.log('Activating hand mode');
         fabricCanvas.selection = false;
         fabricCanvas.hoverCursor = 'grab';
         fabricCanvas.moveCursor = 'grab';
+        
+        // Disable object selection but keep events for panning
+        fabricCanvas.forEachObject((obj) => {
+          obj.selectable = false;
+          obj.evented = false;
+        });
         break;
+        
       case 'frame':
         console.log('Activating frame mode');
         fabricCanvas.selection = false;
         fabricCanvas.hoverCursor = 'crosshair';
         fabricCanvas.moveCursor = 'crosshair';
+        
+        // Disable object selection for frame creation
+        fabricCanvas.forEachObject((obj) => {
+          obj.selectable = false;
+          obj.evented = false;
+        });
         break;
+        
       case 'text':
         console.log('Activating text mode');
         fabricCanvas.selection = false;
         fabricCanvas.hoverCursor = 'text';
         fabricCanvas.moveCursor = 'text';
+        
+        // Disable object selection for text creation
+        fabricCanvas.forEachObject((obj) => {
+          obj.selectable = false;
+          obj.evented = false;
+        });
         break;
+        
       default:
         fabricCanvas.selection = true;
+        // Re-enable object interactions for default mode
+        fabricCanvas.forEachObject((obj) => {
+          obj.selectable = true;
+          obj.evented = true;
+        });
         break;
     }
 
@@ -193,9 +238,9 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
     fabricCanvas.on('mouse:up', onMouseUp);
   }, [selectedTool, fabricCanvas, isCreatingFrame]);
 
-  // Handle object movement and frame children
+  // Handle object movement and frame children (only for select mode)
   useEffect(() => {
-    if (!fabricCanvas) return;
+    if (!fabricCanvas || selectedTool !== 'select') return;
 
     const handleObjectMoving = (e: any) => {
       const obj = e.target;
@@ -221,7 +266,7 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
       fabricCanvas.off('selection:created', handleObjectSelected);
       fabricCanvas.off('selection:updated', handleObjectSelected);
     };
-  }, [fabricCanvas]);
+  }, [fabricCanvas, selectedTool]);
 
   // Add delete key functionality
   useEffect(() => {
@@ -309,9 +354,9 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
     };
   }, [fabricCanvas, selectedTool, isPanning, lastPanPoint]);
 
-  // Main mouse event handler for other tools
+  // Main mouse event handler for frame tool only
   useEffect(() => {
-    if (!fabricCanvas || selectedTool === 'hand') return;
+    if (!fabricCanvas || selectedTool !== 'frame') return;
 
     const handleMouseDown = (opt: any) => {
       if (selectedTool === 'frame') {
