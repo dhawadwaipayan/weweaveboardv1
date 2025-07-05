@@ -16,10 +16,7 @@ export const useToolSwitching = (
     setIsCreatingFrame(false);
     setIsPanning(false);
 
-    // Remove ALL event handlers to prevent conflicts
-    fabricCanvas.off();
-
-    // Reset canvas state
+    // Reset canvas state WITHOUT removing event handlers
     fabricCanvas.isDrawingMode = false;
     fabricCanvas.selection = true;
     fabricCanvas.hoverCursor = 'move';
@@ -28,16 +25,15 @@ export const useToolSwitching = (
     // Configure canvas based on selected tool
     switch (selectedTool) {
       case 'draw':
-        console.log('Activating drawing mode - ISOLATING ALL OTHER FEATURES');
+        console.log('Activating drawing mode');
         fabricCanvas.isDrawingMode = true;
         fabricCanvas.selection = false;
         fabricCanvas.hoverCursor = 'crosshair';
         fabricCanvas.moveCursor = 'crosshair';
         
-        // Disable ALL object interactions during drawing
+        // Only disable selection during drawing, preserve object properties
         fabricCanvas.forEachObject((obj) => {
           obj.selectable = false;
-          obj.evented = false;
         });
         
         // Ensure brush is properly configured
@@ -53,8 +49,9 @@ export const useToolSwitching = (
         fabricCanvas.hoverCursor = 'move';
         fabricCanvas.moveCursor = 'move';
         
-        // Re-enable object interactions
+        // Re-enable object interactions, preserve original selectability
         fabricCanvas.forEachObject((obj) => {
+          // Frames and other objects should be selectable
           obj.selectable = true;
           obj.evented = true;
         });
@@ -66,10 +63,9 @@ export const useToolSwitching = (
         fabricCanvas.hoverCursor = 'grab';
         fabricCanvas.moveCursor = 'grab';
         
-        // Disable object selection but keep events for panning
+        // Disable selection but don't touch evented property
         fabricCanvas.forEachObject((obj) => {
           obj.selectable = false;
-          obj.evented = false;
         });
         break;
         
@@ -79,10 +75,9 @@ export const useToolSwitching = (
         fabricCanvas.hoverCursor = 'crosshair';
         fabricCanvas.moveCursor = 'crosshair';
         
-        // Disable object selection for frame creation
+        // Disable selection for frame creation
         fabricCanvas.forEachObject((obj) => {
           obj.selectable = false;
-          obj.evented = false;
         });
         break;
         
@@ -92,10 +87,9 @@ export const useToolSwitching = (
         fabricCanvas.hoverCursor = 'text';
         fabricCanvas.moveCursor = 'text';
         
-        // Disable object selection for text creation
+        // Disable selection for text creation
         fabricCanvas.forEachObject((obj) => {
           obj.selectable = false;
-          obj.evented = false;
         });
         break;
         

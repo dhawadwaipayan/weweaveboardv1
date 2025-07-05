@@ -60,8 +60,8 @@ export const useToolEventHandlers = ({
             fill: '#1A1A1A',
             stroke: '',
             strokeWidth: 0,
-            selectable: false,
-            evented: false,
+            selectable: false, // Temporary during creation
+            evented: false,    // Temporary during creation
             name: 'frame',
           });
 
