@@ -26,7 +26,7 @@ const Index = () => {
       <Canvas ref={canvasRef} selectedTool={selectedTool} onSelectedImageSrcChange={setSelectedImageSrc} />
       
       {/* Sidebar - positioned center left */}
-      <Sidebar onToolSelect={handleToolSelect} selectedImageSrc={selectedImageSrc} />
+      <Sidebar onToolSelect={handleToolSelect} selectedImageSrc={selectedImageSrc} selectedTool={selectedTool} setSelectedTool={setSelectedTool} />
       
       {/* UI Overlay - above canvas */}
       <div className="relative z-10 flex flex-col pl-[37px] pr-20 py-[34px] min-h-screen max-md:px-5 pointer-events-none">

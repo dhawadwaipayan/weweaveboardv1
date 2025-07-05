@@ -4,13 +4,15 @@ import { ArrowsOutCardinal, PaintBrush, Shapes, TextT, RectangleDashed, Hand, Do
 interface SidebarProps {
   onToolSelect?: (toolId: string) => void;
   selectedImageSrc?: string | null;
+  selectedTool: string;
+  setSelectedTool: (toolId: string) => void;
 }
 export const Sidebar: React.FC<SidebarProps> = ({
   onToolSelect,
-  selectedImageSrc
+  selectedImageSrc,
+  selectedTool,
+  setSelectedTool
 }) => {
-  const [selectedTool, setSelectedTool] = useState<string>('select');
-
   const tools = [{
     id: 'select',
     icon: ArrowsOutCardinal,
@@ -31,6 +33,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     id: 'text',
     icon: TextT,
     label: 'Text'
+  }, {
+    id: 'frame',
+    icon: RectangleDashed,
+    label: 'Frame'
   }];
   const handleToolSelect = (toolId: string) => {
     setSelectedTool(toolId);
