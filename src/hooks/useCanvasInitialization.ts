@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Canvas as FabricCanvas, Pattern } from 'fabric';
+import { Canvas as FabricCanvas, Pattern, PencilBrush } from 'fabric';
 
 export const useCanvasInitialization = (canvasRef: React.RefObject<HTMLCanvasElement>) => {
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
@@ -7,10 +7,17 @@ export const useCanvasInitialization = (canvasRef: React.RefObject<HTMLCanvasEle
   useEffect(() => {
     if (!canvasRef.current) return;
 
+    console.log('Initializing canvas with dimensions:', {
+      windowWidth: window.innerWidth,
+      windowHeight: window.innerHeight
+    });
+
     const canvas = new FabricCanvas(canvasRef.current, {
       width: window.innerWidth,
       height: window.innerHeight,
       backgroundColor: '#1E1E1E',
+      preserveObjectStacking: true,
+      enableRetinaScaling: true,
     });
 
     // Create grid pattern using Fabric.js Pattern
@@ -45,19 +52,35 @@ export const useCanvasInitialization = (canvasRef: React.RefObject<HTMLCanvasEle
     });
     canvas.backgroundColor = pattern;
 
-    // Initialize the freeDrawingBrush properly
-    if (canvas.freeDrawingBrush) {
-      canvas.freeDrawingBrush.color = '#FF0000';
-      canvas.freeDrawingBrush.width = 3;
-    }
+    // Initialize the freeDrawingBrush properly with PencilBrush
+    const brush = new PencilBrush(canvas);
+    brush.color = '#00FF00'; // Bright green for visibility
+    brush.width = 5;
+    canvas.freeDrawingBrush = brush;
+    
+    console.log('Canvas initialized with drawing brush:', {
+      brush: brush,
+      brushColor: brush.color,
+      brushWidth: brush.width,
+      canvasDimensions: {
+        width: canvas.width,
+        height: canvas.height,
+        getWidth: canvas.getWidth(),
+        getHeight: canvas.getHeight()
+      }
+    });
 
     setFabricCanvas(canvas);
 
     // Handle window resize
     const handleResize = () => {
+      const newWidth = window.innerWidth;
+      const newHeight = window.innerHeight;
+      console.log('Resizing canvas to:', { newWidth, newHeight });
+      
       canvas.setDimensions({
-        width: window.innerWidth,
-        height: window.innerHeight
+        width: newWidth,
+        height: newHeight
       });
       canvas.renderAll();
     };

@@ -61,6 +61,42 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
     };
   }, [fabricCanvas]);
 
+  // Add debugging for mouse events
+  useEffect(() => {
+    if (!fabricCanvas) return;
+
+    const handleMouseDown = (e: any) => {
+      console.log('Canvas mouse down:', {
+        tool: selectedTool,
+        isDrawingMode: fabricCanvas.isDrawingMode,
+        pointer: fabricCanvas.getPointer(e.e),
+        event: e.e
+      });
+    };
+
+    const handleMouseMove = (e: any) => {
+      if (selectedTool === 'draw' && fabricCanvas.isDrawingMode) {
+        console.log('Drawing mouse move:', fabricCanvas.getPointer(e.e));
+      }
+    };
+
+    const handleMouseUp = (e: any) => {
+      if (selectedTool === 'draw') {
+        console.log('Canvas mouse up in draw mode:', fabricCanvas.getPointer(e.e));
+      }
+    };
+
+    fabricCanvas.on('mouse:down', handleMouseDown);
+    fabricCanvas.on('mouse:move', handleMouseMove);
+    fabricCanvas.on('mouse:up', handleMouseUp);
+
+    return () => {
+      fabricCanvas.off('mouse:down', handleMouseDown);
+      fabricCanvas.off('mouse:move', handleMouseMove);
+      fabricCanvas.off('mouse:up', handleMouseUp);
+    };
+  }, [fabricCanvas, selectedTool]);
+
   // Register global image import handler for TopBar
   useEffect(() => {
     if (!fabricCanvas) return;
@@ -115,6 +151,14 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
       <canvas
         ref={canvasRef}
         className="absolute inset-0"
+        style={{ 
+          cursor: selectedTool === 'draw' ? 'crosshair' : 'default',
+          touchAction: 'none', // Prevent touch scrolling on mobile
+          pointerEvents: 'auto' // Ensure mouse events are captured
+        }}
+        onMouseDown={(e) => {
+          console.log('Native canvas mouse down:', e);
+        }}
       />
       
       <CanvasToolIndicator selectedTool={selectedTool} />
