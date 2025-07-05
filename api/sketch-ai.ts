@@ -1,18 +1,19 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { base64Image, promptText } = req.body;
-  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+  const { base64Image, promptText, apiKey } = req.body || {};
+
+  if (!base64Image || !promptText || !apiKey) {
+    return res.status(400).json({ error: 'Missing base64Image, promptText, or apiKey' });
+  }
 
   try {
     const openaiRes = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -45,8 +46,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
     });
     const data = await openaiRes.json();
+    if (!openaiRes.ok) {
+      console.error('OpenAI API error:', data);
+      return res.status(openaiRes.status).json({ error: data });
+    }
     res.status(openaiRes.status).json(data);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    console.error('Serverless function error:', err);
+    res.status(500).json({ error: err.message || String(err) });
   }
 } 

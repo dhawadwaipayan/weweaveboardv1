@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowsOutCardinal, PaintBrush, Shapes, TextT, RectangleDashed, Hand, DownloadSimple } from '@phosphor-icons/react';
 
 interface SidebarProps {
@@ -10,6 +10,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   selectedImageSrc
 }) => {
   const [selectedTool, setSelectedTool] = useState<string>('select');
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+
+  useEffect(() => {
+    const storedKey = localStorage.getItem('OPENAI_API_KEY') || '';
+    setApiKey(storedKey);
+  }, []);
+
+  const handleApiKeySave = () => {
+    localStorage.setItem('OPENAI_API_KEY', apiKey);
+    setShowApiKeyInput(false);
+  };
+
   const tools = [{
     id: 'select',
     icon: ArrowsOutCardinal,
@@ -78,5 +91,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         <DownloadSimple size={20} color={selectedImageSrc ? '#fff' : '#A9A9A9'} className="group-hover:!text-white transition-colors duration-75" />
       </button>
+      {/* Add API Key button */}
+      <button
+        className="group flex items-center justify-center w-[30px] h-[30px] rounded-lg transition-colors duration-75"
+        title="Set OpenAI API Key"
+        onClick={() => setShowApiKeyInput((v) => !v)}
+      >
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M12 17v.01M7 17v.01M17 17v.01M3 21V7a2 2 0 0 1 2-2h4V3a2 2 0 1 1 4 0v2h4a2 2 0 0 1 2 2v14H3Zm2-4h14" stroke="#E1FF00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      </button>
+      {showApiKeyInput && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-[#232323] p-6 rounded-xl shadow-lg flex flex-col gap-4 min-w-[320px]">
+            <label className="text-white font-medium">Enter OpenAI API Key</label>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              className="w-full px-3 py-2 rounded bg-[#1a1a1a] text-white border border-[#373737] focus:outline-none"
+              placeholder="sk-..."
+            />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowApiKeyInput(false)} className="px-4 py-2 rounded bg-gray-600 text-white hover:bg-gray-700">Cancel</button>
+              <button onClick={handleApiKeySave} className="px-4 py-2 rounded bg-[#E1FF00] text-black font-bold hover:bg-[#d4e900]">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>;
 };

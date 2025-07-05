@@ -1,7 +1,5 @@
 // OpenAI Sketch Image Generation Utility
 
-const apiKey = "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";
-
 export async function callOpenAIGptImage({
   base64Image,
   promptText
@@ -9,13 +7,21 @@ export async function callOpenAIGptImage({
   base64Image: string,
   promptText: string
 }) {
+  // Get API key from localStorage (manually entered by user)
+  const apiKey = localStorage.getItem('openai_api_key');
+  
+  if (!apiKey) {
+    throw new Error("OpenAI API key not found. Please enter your API key in the sidebar.");
+  }
+
   const response = await fetch("/api/sketch-ai", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ base64Image, promptText })
+    body: JSON.stringify({ base64Image, promptText, apiKey })
   });
+  
   if (!response.ok) {
     let errorMsg = "";
     try {
