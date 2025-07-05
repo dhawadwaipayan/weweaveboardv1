@@ -73,8 +73,14 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
       return;
     }
     const frame = activeObject as any; // FrameContainer
-    // Get all objects inside the selected frame
-    const frameObjects = frame.getObjects ? frame.getObjects() : [];
+    // Always update children before generating
+    if (typeof frame.updateChildren === 'function') frame.updateChildren();
+    // Get all objects inside the selected frame (robust)
+    const allObjects = fabricCanvas.getObjects();
+    const frameObjects = allObjects.filter(obj =>
+      obj !== frame && !(obj as any).isFrameContainer &&
+      typeof frame.isObjectInside === 'function' && frame.isObjectInside(obj)
+    );
     if (!frameObjects.length) {
       setAiStatus('idle');
       alert('No objects found inside the selected frame. Please add objects to the frame for AI generation.');
