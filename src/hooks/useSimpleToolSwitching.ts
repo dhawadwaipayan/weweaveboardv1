@@ -62,6 +62,7 @@ export const useSimpleToolSwitching = (
         fabricCanvas.skipTargetFind = false;
         fabricCanvas.hoverCursor = 'grab';
         fabricCanvas.moveCursor = 'grab';
+        fabricCanvas.defaultCursor = 'grab';
         break;
         
       case 'frame':

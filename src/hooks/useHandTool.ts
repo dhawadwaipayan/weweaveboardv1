@@ -20,6 +20,13 @@ export const useHandTool = ({
 }: UseHandToolProps) => {
   const panningRef = useRef(false);
   const lastPanPointRef = useRef({ x: 0, y: 0 });
+  const eventHandlersRef = useRef<{
+    handleMouseDown: (opt: any) => void;
+    handleMouseMove: (opt: any) => void;
+    handleMouseUp: () => void;
+    handleMouseLeave: () => void;
+    handleWheel: (opt: any) => void;
+  } | null>(null);
 
   useEffect(() => {
     if (!fabricCanvas) return;
@@ -32,72 +39,108 @@ export const useHandTool = ({
     
     if (selectedTool !== 'hand') return;
 
-    const handleMouseDown = (opt: any) => {
-      const pointer = fabricCanvas.getPointer(opt.e);
-      panningRef.current = true;
-      lastPanPointRef.current = { x: pointer.x, y: pointer.y };
-      setIsPanning(true);
-      fabricCanvas.setCursor('grabbing');
-    };
+    // Create event handlers only once
+    if (!eventHandlersRef.current) {
+      eventHandlersRef.current = {
+        handleMouseDown: (opt: any) => {
+          // Only handle if not already panning and no object is selected
+          if (panningRef.current || fabricCanvas.getActiveObject()) return;
+          
+          const pointer = fabricCanvas.getPointer(opt.e);
+          panningRef.current = true;
+          lastPanPointRef.current = { x: pointer.x, y: pointer.y };
+          setIsPanning(true);
+          fabricCanvas.setCursor('grabbing');
+          
+          // Prevent default behavior
+          opt.e.preventDefault();
+          opt.e.stopPropagation();
+        },
 
-    const handleMouseMove = (opt: any) => {
-      if (!panningRef.current) return;
-      
-      const pointer = fabricCanvas.getPointer(opt.e);
-      const deltaX = pointer.x - lastPanPointRef.current.x;
-      const deltaY = pointer.y - lastPanPointRef.current.y;
-      
-      // Use relativePan for smoother panning
-      fabricCanvas.relativePan(new Point(deltaX, deltaY));
-      
-      lastPanPointRef.current = { x: pointer.x, y: pointer.y };
-    };
+        handleMouseMove: (opt: any) => {
+          if (!panningRef.current) return;
+          
+          const pointer = fabricCanvas.getPointer(opt.e);
+          const deltaX = pointer.x - lastPanPointRef.current.x;
+          const deltaY = pointer.y - lastPanPointRef.current.y;
+          
+          // Use absolute panning for smoother movement
+          const vpt = fabricCanvas.viewportTransform;
+          if (vpt) {
+            vpt[4] += deltaX;
+            vpt[5] += deltaY;
+            fabricCanvas.setViewportTransform(vpt);
+            fabricCanvas.requestRenderAll(); // Force immediate render
+          }
+          
+          lastPanPointRef.current = { x: pointer.x, y: pointer.y };
+          
+          // Prevent default behavior
+          opt.e.preventDefault();
+          opt.e.stopPropagation();
+        },
 
-    const handleMouseUp = () => {
-      if (panningRef.current) {
-        panningRef.current = false;
-        setIsPanning(false);
-        fabricCanvas.setCursor('grab');
-      }
-    };
+        handleMouseUp: () => {
+          if (panningRef.current) {
+            panningRef.current = false;
+            setIsPanning(false);
+            fabricCanvas.setCursor('grab');
+          }
+        },
 
-    const handleMouseLeave = () => {
-      if (panningRef.current) {
-        panningRef.current = false;
-        setIsPanning(false);
-        fabricCanvas.setCursor('grab');
-      }
-    };
+        handleMouseLeave: () => {
+          if (panningRef.current) {
+            panningRef.current = false;
+            setIsPanning(false);
+            fabricCanvas.setCursor('grab');
+          }
+        },
 
-    const handleWheel = (opt: any) => {
-      const delta = opt.e.deltaY;
-      let zoom = fabricCanvas.getZoom();
-      zoom *= 0.999 ** delta;
-      
-      if (zoom > 20) zoom = 20;
-      if (zoom < 0.01) zoom = 0.01;
-      
-      const pointer = fabricCanvas.getPointer(opt.e);
-      fabricCanvas.zoomToPoint(new Point(pointer.x, pointer.y), zoom);
-      opt.e.preventDefault();
-      opt.e.stopPropagation();
-    };
+        handleWheel: (opt: any) => {
+          const delta = opt.e.deltaY;
+          let zoom = fabricCanvas.getZoom();
+          zoom *= 0.999 ** delta;
+          
+          if (zoom > 20) zoom = 20;
+          if (zoom < 0.01) zoom = 0.01;
+          
+          const pointer = fabricCanvas.getPointer(opt.e);
+          fabricCanvas.zoomToPoint(new Point(pointer.x, pointer.y), zoom);
+          opt.e.preventDefault();
+          opt.e.stopPropagation();
+        }
+      };
+    }
 
-    fabricCanvas.on('mouse:down', handleMouseDown);
-    fabricCanvas.on('mouse:move', handleMouseMove);
-    fabricCanvas.on('mouse:up', handleMouseUp);
-    fabricCanvas.on('mouse:out', handleMouseLeave);
-    fabricCanvas.on('mouse:wheel', handleWheel);
+    const handlers = eventHandlersRef.current;
+
+    // Remove any existing handlers first
+    fabricCanvas.off('mouse:down', handlers.handleMouseDown);
+    fabricCanvas.off('mouse:move', handlers.handleMouseMove);
+    fabricCanvas.off('mouse:up', handlers.handleMouseUp);
+    fabricCanvas.off('mouse:out', handlers.handleMouseLeave);
+    fabricCanvas.off('mouse:wheel', handlers.handleWheel);
+
+    // Add handlers
+    fabricCanvas.on('mouse:down', handlers.handleMouseDown);
+    fabricCanvas.on('mouse:move', handlers.handleMouseMove);
+    fabricCanvas.on('mouse:up', handlers.handleMouseUp);
+    fabricCanvas.on('mouse:out', handlers.handleMouseLeave);
+    fabricCanvas.on('mouse:wheel', handlers.handleWheel);
 
     return () => {
-      fabricCanvas.off('mouse:down', handleMouseDown);
-      fabricCanvas.off('mouse:move', handleMouseMove);
-      fabricCanvas.off('mouse:up', handleMouseUp);
-      fabricCanvas.off('mouse:out', handleMouseLeave);
-      fabricCanvas.off('mouse:wheel', handleWheel);
+      if (eventHandlersRef.current) {
+        const handlers = eventHandlersRef.current;
+        fabricCanvas.off('mouse:down', handlers.handleMouseDown);
+        fabricCanvas.off('mouse:move', handlers.handleMouseMove);
+        fabricCanvas.off('mouse:up', handlers.handleMouseUp);
+        fabricCanvas.off('mouse:out', handlers.handleMouseLeave);
+        fabricCanvas.off('mouse:wheel', handlers.handleWheel);
+      }
       
       // Reset panning state when cleaning up
       panningRef.current = false;
+      setIsPanning(false);
     };
-  }, [fabricCanvas, selectedTool]); // Removed state dependencies to prevent re-renders
+  }, [fabricCanvas, selectedTool, setIsPanning]);
 };
