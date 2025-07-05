@@ -112,7 +112,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
       base64Image = tempCanvas.toDataURL({ format: 'png', multiplier: 1 });
       tempCanvas.dispose();
     } else {
-      // Fallback: try grouping the selected objects and rasterizing the group
+      // Fallback: try grouping the selected objects and rasterizing the group (deep copy, don't move originals)
       try {
         const bounds = selectedObjects.reduce((acc, obj) => {
           const left = obj.left ?? 0;
@@ -129,17 +129,22 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
         const width = Math.ceil(bounds.maxX - bounds.minX);
         const height = Math.ceil(bounds.maxY - bounds.minY);
         const tempCanvas = new fabric.Canvas(null, { width, height, backgroundColor: '#fff' });
-        // Group the selected objects
+        // Deep copy the group using toObject/fromObject
         const group = new fabric.Group(selectedObjects.map((obj: any) => obj), {
           left: 0,
           top: 0
         });
-        group.set({ left: 0, top: 0 });
-        tempCanvas.add(group);
-        tempCanvas.renderAll();
-        base64Image = tempCanvas.toDataURL({ format: 'png', multiplier: 1 });
-        tempCanvas.dispose();
-        console.log('Rasterized using group fallback.');
+        const groupObj = group.toObject();
+        group.dispose();
+        await new Promise(resolve => fabric.Group.fromObject(groupObj, (clonedGroup: any) => {
+          clonedGroup.set({ left: 0, top: 0 });
+          tempCanvas.add(clonedGroup);
+          tempCanvas.renderAll();
+          base64Image = tempCanvas.toDataURL({ format: 'png', multiplier: 1 });
+          tempCanvas.dispose();
+          resolve(null);
+        }));
+        console.log('Rasterized using group fallback (deep copy).');
       } catch (e) {
         console.warn('Group rasterization fallback failed:', e);
       }
