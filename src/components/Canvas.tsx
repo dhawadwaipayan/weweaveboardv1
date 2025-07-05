@@ -144,7 +144,7 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
         }}
       />
       
-      <CanvasToolIndicator selectedTool={selectedTool} />
+      {/* <CanvasToolIndicator selectedTool={selectedTool} /> */}
     </div>
   );
 };
