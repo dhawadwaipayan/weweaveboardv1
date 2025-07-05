@@ -136,13 +136,17 @@ export const useToolEventHandlers = ({
           break;
 
         case 'draw':
-          // Drawing is handled by Fabric.js natively when isDrawingMode = true
-          // No additional handling needed here
+          // For drawing mode, let Fabric.js handle the drawing natively
+          // But prevent other tools from interfering
+          if (fabricCanvas.isDrawingMode) {
+            console.log('Drawing mode - letting Fabric.js handle drawing');
+          }
           break;
 
         case 'select':
-          // Selection is handled by Fabric.js natively when selection = true
-          // No additional handling needed here
+          // For select mode, let Fabric.js handle selection natively
+          // The object selection will work automatically with selection=true
+          console.log('Select mode - Fabric.js handling selection');
           break;
       }
     };
@@ -204,9 +208,7 @@ export const useToolEventHandlers = ({
     };
 
     // Add event listeners based on tool
-    if (selectedTool !== 'draw') {
-      fabricCanvas.on('mouse:down', handleMouseDown);
-    }
+    fabricCanvas.on('mouse:down', handleMouseDown);
     
     if (selectedTool === 'hand') {
       fabricCanvas.on('mouse:move', handleMouseMove);

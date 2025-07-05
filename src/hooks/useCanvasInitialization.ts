@@ -13,6 +13,34 @@ export const useCanvasInitialization = (canvasRef: React.RefObject<HTMLCanvasEle
       backgroundColor: '#1E1E1E',
     });
 
+    // Create and set grid background
+    const createGridPattern = () => {
+      const patternCanvas = document.createElement('canvas');
+      const patternCtx = patternCanvas.getContext('2d');
+      const gridSize = 20;
+      
+      patternCanvas.width = gridSize;
+      patternCanvas.height = gridSize;
+      
+      if (patternCtx) {
+        patternCtx.fillStyle = '#1E1E1E';
+        patternCtx.fillRect(0, 0, gridSize, gridSize);
+        patternCtx.strokeStyle = '#333333';
+        patternCtx.lineWidth = 0.5;
+        patternCtx.beginPath();
+        patternCtx.moveTo(0, gridSize);
+        patternCtx.lineTo(gridSize, gridSize);
+        patternCtx.lineTo(gridSize, 0);
+        patternCtx.stroke();
+      }
+      
+      return patternCanvas.toDataURL();
+    };
+
+    // Set grid background using CSS styling
+    const gridDataUrl = createGridPattern();
+    canvas.backgroundColor = `url(${gridDataUrl})`;
+
     // Initialize the freeDrawingBrush properly
     if (canvas.freeDrawingBrush) {
       canvas.freeDrawingBrush.color = '#FF0000';
