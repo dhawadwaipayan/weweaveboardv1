@@ -58,38 +58,52 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
   
   useDeleteHandler(fabricCanvas, selectedTool);
 
-  // Global image import handler
+  // Register global image import handler for TopBar
   useEffect(() => {
     if (!fabricCanvas) return;
 
-    const handleImageImport = (event: CustomEvent) => {
-      const file = event.detail;
-      if (!file) return;
-
+    const handleImageImport = (file: File) => {
+      console.log('Canvas: Received image import request for:', file.name);
+      
       const reader = new FileReader();
       reader.onload = (e) => {
-        const imgElement = new Image();
-        imgElement.onload = () => {
-          FabricImage.fromURL(e.target?.result as string)
-            .then((img) => {
-              img.set({
-                left: 100,
-                top: 100,
-                scaleX: 0.5,
-                scaleY: 0.5,
-              });
-              fabricCanvas.add(img);
-              fabricCanvas.renderAll();
+        const result = e.target?.result as string;
+        console.log('Canvas: FileReader loaded, creating Fabric image');
+        
+        FabricImage.fromURL(result)
+          .then((img) => {
+            console.log('Canvas: Fabric image created, adding to canvas');
+            img.set({
+              left: 100,
+              top: 100,
+              scaleX: 0.5,
+              scaleY: 0.5,
+              selectable: true,
+              evented: true,
             });
-        };
-        imgElement.src = e.target?.result as string;
+            fabricCanvas.add(img);
+            fabricCanvas.renderAll();
+            console.log('Canvas: Image added successfully');
+          })
+          .catch((error) => {
+            console.error('Canvas: Error creating Fabric image:', error);
+          });
       };
+      
+      reader.onerror = (error) => {
+        console.error('Canvas: FileReader error:', error);
+      };
+      
       reader.readAsDataURL(file);
     };
 
-    window.addEventListener('importImage', handleImageImport as EventListener);
+    // Register handler on window object for TopBar to use
+    (window as any).handleCanvasImageImport = handleImageImport;
+    console.log('Canvas: Image import handler registered on window');
+
     return () => {
-      window.removeEventListener('importImage', handleImageImport as EventListener);
+      delete (window as any).handleCanvasImageImport;
+      console.log('Canvas: Image import handler removed from window');
     };
   }, [fabricCanvas]);
 
