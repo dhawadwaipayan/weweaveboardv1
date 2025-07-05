@@ -65,35 +65,18 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
       console.error('No fabric canvas instance');
       return;
     }
-    // Use the selected (active) frame for AI input
-    const activeObject = fabricCanvas.getActiveObject();
-    if (!activeObject || !(activeObject as any).isFrameContainer) {
-      setAiStatus('idle');
-      alert('Please select a frame to use as input for AI generation.');
-      return;
-    }
-    const frame = activeObject as any; // FrameContainer
-    // Always update children before generating
-    if (typeof frame.updateChildren === 'function') frame.updateChildren();
-    // Get all objects inside the selected frame (robust)
-    const allObjects = fabricCanvas.getObjects();
-    const frameObjects = allObjects.filter(obj =>
-      obj !== frame && !(obj as any).isFrameContainer &&
-      typeof frame.isObjectInside === 'function' && frame.isObjectInside(obj)
-    );
-    if (!frameObjects.length) {
-      setAiStatus('idle');
-      alert('No objects found inside the selected frame. Please add objects to the frame for AI generation.');
-      return;
-    }
-    // Debug: log frame objects and their types and constructors
-    console.log('Frame objects for rasterization:', frameObjects.map(obj => ({ type: obj.type, constructor: obj.constructor?.name, obj })));
-    // Robust rasterization: always deep clone frame objects, never touch originals
+    const selectedObjects = fabricCanvas.getActiveObjects();
+    // Debug: log selected objects and their types and constructors
+    console.log('Selected objects for rasterization:', selectedObjects.map(obj => ({ type: obj.type, constructor: obj.constructor?.name, obj })));
+    // Robust rasterization: crop main canvas to selection bounding box
     let base64Image = null;
     try {
-      console.log('[Sketch AI] Starting robust rasterization (frame)...');
-      // Compute bounds of all frame objects
-      const bounds = frameObjects.reduce((acc, obj) => {
+      console.log('[Sketch AI] Starting bounding box crop rasterization...');
+      if (selectedObjects.length === 0) {
+        throw new Error('No objects selected');
+      }
+      // Calculate bounding box
+      const bounds = selectedObjects.reduce((acc, obj) => {
         const left = obj.left ?? 0;
         const top = obj.top ?? 0;
         const width = obj.width ? obj.width * (obj.scaleX ?? 1) : 0;
@@ -105,33 +88,14 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
           maxY: Math.max(acc.maxY, top + height)
         };
       }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+      const left = Math.floor(bounds.minX);
+      const top = Math.floor(bounds.minY);
       const width = Math.ceil(bounds.maxX - bounds.minX);
       const height = Math.ceil(bounds.maxY - bounds.minY);
-      const tempCanvas = new fabric.Canvas(null, { width, height, backgroundColor: '#fff' });
-      // Deep clone frame objects
-      const serialized = frameObjects.map(obj => obj.toObject());
-      await new Promise<void>((resolve, reject) => {
-        (fabric.util.enlivenObjects as any)(serialized, (clones: any[]) => {
-          if (!clones || clones.length === 0) {
-            reject(new Error('No objects could be enlivened'));
-            return;
-          }
-          // Group if more than one
-          let toAdd: any = clones;
-          if (clones.length > 1) {
-            toAdd = new fabric.Group(clones, { left: 0, top: 0 });
-          }
-          if (Array.isArray(toAdd)) {
-            toAdd.forEach((obj: any) => tempCanvas.add(obj));
-          } else {
-            tempCanvas.add(toAdd);
-          }
-          tempCanvas.renderAll();
-          base64Image = tempCanvas.toDataURL({ format: 'png', multiplier: 1 });
-          tempCanvas.dispose();
-          resolve();
-        });
-      });
+      if (width <= 0 || height <= 0) {
+        throw new Error('Invalid selection bounding box');
+      }
+      base64Image = fabricCanvas.toDataURL({ left, top, width, height, format: 'png', multiplier: 1 });
       console.log('[Sketch AI] Rasterization complete, base64Image length:', base64Image?.length);
     } catch (e) {
       setAiStatus('idle');
@@ -140,14 +104,14 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
       return;
     }
     if (!base64Image) {
-      alert('Failed to rasterize any objects inside the frame for AI generation.');
+      alert('Failed to rasterize any selected objects for AI generation.');
       setAiStatus('idle');
       return;
     }
     console.log('[Sketch AI] Rasterization complete, base64Image length:', base64Image.length);
     // Prepare input for OpenAI
     let annotationText: string = '';
-    frameObjects.forEach(obj => {
+    selectedObjects.forEach(obj => {
       if (obj.type === 'i-text' || obj.type === 'text') {
         annotationText += (obj as any).text + ' ';
       }
@@ -178,9 +142,24 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
         return;
       }
       const imageUrl = `data:image/png;base64,${base64}`;
-      // Place to the right of the frame
-      let x = (frame.left ?? 0) + (frame.width ?? 0) + 40;
-      let y = frame.top ?? 0;
+      let x = 100, y = 100;
+      if (selectedObjects.length > 0) {
+        // Place to the right of the rightmost selected object
+        const bounds = selectedObjects.reduce((acc, obj) => {
+          const left = obj.left ?? 0;
+          const top = obj.top ?? 0;
+          const width = obj.width ? obj.width * (obj.scaleX ?? 1) : 0;
+          const height = obj.height ? obj.height * (obj.scaleY ?? 1) : 0;
+          return {
+            minX: Math.min(acc.minX, left),
+            minY: Math.min(acc.minY, top),
+            maxX: Math.max(acc.maxX, left + width),
+            maxY: Math.max(acc.maxY, top + height)
+          };
+        }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+        x = bounds.maxX + 40; // 40px gap
+        y = bounds.minY;
+      }
       const finalImgObj = await FabricImage.fromURL(imageUrl);
       finalImgObj.set({
         left: x,
