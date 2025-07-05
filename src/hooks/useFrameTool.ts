@@ -53,6 +53,9 @@ export const useFrameTool = ({
         height: 0,
         selectable: false, // Temporary during creation
         evented: true,     // Keep events enabled
+        fill: '#EDEDED',   // Frame fill color
+        stroke: undefined, // No border
+        strokeWidth: 0,    // No border
       });
 
       frameContainer.setCanvas(fabricCanvas);
