@@ -73,6 +73,14 @@ export const useSimpleToolSwitching = (
         break;
         
       case 'frame':
+        fabricCanvas.isDrawingMode = false;
+        fabricCanvas.selection = false; // Disable canvas selection during frame creation
+        fabricCanvas.skipTargetFind = true; // Prevent object targeting during frame creation
+        fabricCanvas.hoverCursor = 'crosshair';
+        fabricCanvas.moveCursor = 'crosshair';
+        console.log('Frame mode enabled - only frame creation allowed');
+        break;
+        
       case 'text':
         fabricCanvas.isDrawingMode = false;
         fabricCanvas.selection = false;

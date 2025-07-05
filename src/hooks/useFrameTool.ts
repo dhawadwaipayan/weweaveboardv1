@@ -35,9 +35,19 @@ export const useFrameTool = ({
     
     if (selectedTool !== 'frame') return;
 
-    const handleFrameCreation = (opt: any) => {
+    const handleFrameInteraction = (opt: any) => {
       if (isCreatingFrame) return;
       
+      const target = opt.target;
+      
+      // If clicking on an existing frame, select it
+      if (target && (target as any).name === 'frame-rectangle') {
+        fabricCanvas.setActiveObject(target);
+        fabricCanvas.renderAll();
+        return;
+      }
+      
+      // Otherwise, create a new frame
       const pointer = fabricCanvas.getPointer(opt.e);
       setIsCreatingFrame(true);
 
@@ -116,10 +126,10 @@ export const useFrameTool = ({
       fabricCanvas.on('mouse:up', onMouseUp);
     };
 
-    fabricCanvas.on('mouse:down', handleFrameCreation);
+    fabricCanvas.on('mouse:down', handleFrameInteraction);
 
     return () => {
-      fabricCanvas.off('mouse:down', handleFrameCreation);
+      fabricCanvas.off('mouse:down', handleFrameInteraction);
     };
   }, [fabricCanvas, selectedTool, isCreatingFrame, setIsCreatingFrame, setFrames]);
 };

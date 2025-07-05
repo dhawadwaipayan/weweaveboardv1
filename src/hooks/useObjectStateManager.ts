@@ -22,12 +22,16 @@ export const useObjectStateManager = (
       } else if (selectedTool === 'hand') {
         // In hand mode, disable object selection to prevent conflicts with panning
         obj.selectable = false;
-      } else {
-        // For other tools (frame, text), disable selection temporarily
-        // But preserve frame objects that were just created
-        if (!(obj as any).isFrameObject || selectedTool !== 'frame') {
+      } else if (selectedTool === 'frame') {
+        // In frame mode, only frames should be selectable
+        if ((obj as any).name === 'frame-rectangle') {
+          obj.selectable = true;
+        } else {
           obj.selectable = false;
         }
+      } else {
+        // For other tools (text, etc.), disable selection temporarily
+        obj.selectable = false;
       }
     });
 
