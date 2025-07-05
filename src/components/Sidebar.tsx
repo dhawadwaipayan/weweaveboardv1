@@ -63,7 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       })}
       {/* Download button */}
       <button
-        className={`group flex items-center justify-center w-[30px] h-[30px] rounded-lg transition-colors duration-75 ${selectedImageSrc ? 'bg-[#232323] hover:bg-[#333]' : 'opacity-50 cursor-not-allowed'}`}
+        className={`group flex items-center justify-center w-[30px] h-[30px] rounded-lg transition-colors duration-75 ${selectedImageSrc ? '' : 'opacity-50 cursor-not-allowed'}`}
         title="Download selected image"
         disabled={!selectedImageSrc}
         onClick={() => {
@@ -76,7 +76,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           document.body.removeChild(link);
         }}
       >
-        <DownloadSimple size={20} color={selectedImageSrc ? '#E1FF00' : '#A9A9A9'} className="group-hover:!text-white transition-colors duration-75" />
+        <DownloadSimple size={20} color={selectedImageSrc ? '#fff' : '#A9A9A9'} className="group-hover:!text-white transition-colors duration-75" />
       </button>
     </aside>;
 };
