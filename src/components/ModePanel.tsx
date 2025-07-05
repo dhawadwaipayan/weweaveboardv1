@@ -75,6 +75,15 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       boundingBoxRef.current = null;
       setSketchBoundingBox(null);
     }
+    // LOCK BOARD: Disable all object interaction and selection
+    fabricCanvas.forEachObject(obj => {
+      obj.selectable = false;
+      obj.evented = false;
+    });
+    fabricCanvas.selection = false;
+    fabricCanvas.skipTargetFind = true;
+    fabricCanvas.discardActiveObject();
+    fabricCanvas.renderAll();
     // Set crosshair cursor
     fabricCanvas.defaultCursor = 'crosshair';
     // Mouse event handlers
@@ -83,12 +92,6 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       boundingBoxDrawing.current = true;
       const pointer = fabricCanvas.getPointer(opt.e);
       boundingBoxStart.current = { x: pointer.x, y: pointer.y };
-      // Lock all objects during bounding box creation
-      fabricCanvas.forEachObject(obj => {
-        obj.selectable = false;
-        obj.evented = false;
-      });
-      fabricCanvas.selection = false;
       // Create a temp rect
       const rect = new fabric.Rect({
         left: pointer.x,
@@ -140,12 +143,14 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
         width: boundingBoxRef.current.width! * (boundingBoxRef.current.scaleX ?? 1),
         height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
       });
-      // Unlock all objects after bounding box is created
+      // UNLOCK BOARD: Restore all object interaction and selection
       fabricCanvas.forEachObject(obj => {
         obj.selectable = true;
         obj.evented = true;
       });
       fabricCanvas.selection = true;
+      fabricCanvas.skipTargetFind = false;
+      fabricCanvas.renderAll();
       // Listen for changes
       boundingBoxRef.current.on('modified', () => {
         setSketchBoundingBox({
