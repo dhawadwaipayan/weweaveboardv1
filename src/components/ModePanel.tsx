@@ -160,8 +160,10 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
     }
     if (!base64Image) {
       alert('Failed to rasterize any selected objects for AI generation.');
+      setAiStatus('idle');
       return;
     }
+    console.log('[Sketch AI] Rasterization complete, base64Image length:', base64Image.length);
     // Prepare input for OpenAI
     let annotationText: string = '';
     selectedObjects.forEach(obj => {
@@ -171,11 +173,12 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
     });
     const promptText = `Generate Image by redoing the flat sketch in the same style, incorporating the prompts indicated in the image. ${annotationText.trim()} ${details}`.trim();
     try {
+      console.log('[Sketch AI] Calling OpenAI API...');
       const result = await callOpenAIGptImage({
         base64Image,
         promptText
       });
-      console.log('OpenAI API full response:', result);
+      console.log('[Sketch AI] OpenAI API full response:', result);
       // Extract base64 image from OpenAI response
       let base64 = null;
       if (result && Array.isArray(result.output)) {
@@ -229,7 +232,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
       setAiStatus('error');
       setAiError(err instanceof Error ? err.message : String(err));
       setTimeout(() => setAiStatus('idle'), 4000);
-      alert('OpenAI API error: ' + (err instanceof Error ? err.message : String(err)));
+      alert('[Sketch AI] Error: ' + (err instanceof Error ? err.message : String(err)));
+      console.error('[Sketch AI] Error:', err);
     }
   };
 
