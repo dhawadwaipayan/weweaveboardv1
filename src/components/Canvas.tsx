@@ -15,8 +15,10 @@ interface CanvasProps {
 
 export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = 'select' }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isPanning, setIsPanning] = useState(false);
-  const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 });
+  
+  // Use refs instead of state to prevent re-renders during drawing/panning
+  const isPanningRef = useRef(false);
+  const lastPanPointRef = useRef({ x: 0, y: 0 });
 
   // Initialize Fabric.js canvas
   const fabricCanvas = useCanvasInitialization(canvasRef);
@@ -31,10 +33,10 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
   useHandTool({
     fabricCanvas,
     selectedTool,
-    isPanning,
-    setIsPanning,
-    lastPanPoint,
-    setLastPanPoint
+    isPanning: isPanningRef.current,
+    setIsPanning: (value: boolean) => { isPanningRef.current = value; },
+    lastPanPoint: lastPanPointRef.current,
+    setLastPanPoint: (point: { x: number; y: number }) => { lastPanPointRef.current = point; }
   });
   
   useDeleteHandler(fabricCanvas, selectedTool);

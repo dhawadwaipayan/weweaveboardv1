@@ -45,11 +45,7 @@ export const useCanvasInitialization = (canvasRef: React.RefObject<HTMLCanvasEle
     });
     canvas.backgroundColor = pattern;
 
-    // Initialize the freeDrawingBrush properly
-    if (canvas.freeDrawingBrush) {
-      canvas.freeDrawingBrush.color = '#FF0000';
-      canvas.freeDrawingBrush.width = 3;
-    }
+    // Brush configuration moved to useSimpleToolSwitching to avoid conflicts
 
     setFabricCanvas(canvas);
 
