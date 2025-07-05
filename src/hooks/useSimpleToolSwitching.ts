@@ -59,13 +59,14 @@ export const useSimpleToolSwitching = (
         
       case 'hand':
         fabricCanvas.isDrawingMode = false;
-        fabricCanvas.selection = true; // Allow selection in hand mode
-        fabricCanvas.skipTargetFind = false;
+        fabricCanvas.selection = false; // Disable selection for pure panning
+        fabricCanvas.skipTargetFind = true; // Prevent object targeting during panning
         fabricCanvas.hoverCursor = 'grab';
         fabricCanvas.moveCursor = 'grab';
         fabricCanvas.defaultCursor = 'grab';
         console.log('Hand mode enabled:', {
           selection: fabricCanvas.selection,
+          skipTargetFind: fabricCanvas.skipTargetFind,
           hoverCursor: fabricCanvas.hoverCursor,
           moveCursor: fabricCanvas.moveCursor
         });

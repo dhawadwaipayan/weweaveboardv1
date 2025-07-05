@@ -38,11 +38,7 @@ export const useHandTool = ({
     console.log('HandTool: Setting up hand tool');
 
     const handleMouseDown = (e: any) => {
-      // Don't start panning if an object is selected
-      if (fabricCanvas.getActiveObject()) {
-        return;
-      }
-
+      // Since we've disabled object selection in hand mode, we can always start panning
       const pointer = fabricCanvas.getPointer(e.e);
       isPanningRef.current = true;
       lastPointRef.current = { x: pointer.x, y: pointer.y };
