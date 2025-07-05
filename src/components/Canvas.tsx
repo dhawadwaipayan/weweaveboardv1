@@ -30,8 +30,10 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
     });
 
     // Initialize the freeDrawingBrush
-    canvas.freeDrawingBrush.color = '#E1FF00';
-    canvas.freeDrawingBrush.width = 3;
+    if (canvas.freeDrawingBrush) {
+      canvas.freeDrawingBrush.color = '#E1FF00';
+      canvas.freeDrawingBrush.width = 3;
+    }
 
     setFabricCanvas(canvas);
 
