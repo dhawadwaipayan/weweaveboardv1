@@ -68,26 +68,11 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
     const selectedObjects = fabricCanvas.getActiveObjects();
     // Debug: log selected objects and their types and constructors
     console.log('Selected objects for rasterization:', selectedObjects.map(obj => ({ type: obj.type, constructor: obj.constructor?.name, obj })));
-    // Rasterize selected objects to PNG
-    // 1. Clone selected objects if possible
-    const clones: any[] = [];
-    for (const obj of selectedObjects) {
-      if (typeof (obj as any).clone === 'function') {
-        try {
-          // eslint-disable-next-line no-await-in-loop
-          const clone = await new Promise<any>(resolve => (obj as any).clone(resolve));
-          clones.push(clone);
-        } catch (e) {
-          console.warn('Failed to clone object:', obj, e);
-        }
-      } else {
-        console.warn('Object is not cloneable:', obj);
-      }
-    }
+    // Robust rasterization: always deep clone selection, never touch originals
     let base64Image = null;
-    if (clones.length > 0) {
-      // 2. Calculate bounding box
-      const bounds = clones.reduce((acc, obj) => {
+    try {
+      console.log('[Sketch AI] Starting robust rasterization...');
+      const bounds = selectedObjects.reduce((acc, obj) => {
         const left = obj.left ?? 0;
         const top = obj.top ?? 0;
         const width = obj.width ? obj.width * (obj.scaleX ?? 1) : 0;
@@ -101,62 +86,36 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
       }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
       const width = Math.ceil(bounds.maxX - bounds.minX);
       const height = Math.ceil(bounds.maxY - bounds.minY);
-      // 3. Create temp canvas
       const tempCanvas = new fabric.Canvas(null, { width, height, backgroundColor: '#fff' });
-      clones.forEach((obj: any) => {
-        obj.set({ left: (obj.left ?? 0) - bounds.minX, top: (obj.top ?? 0) - bounds.minY });
-        tempCanvas.add(obj);
-      });
-      tempCanvas.renderAll();
-      // 4. Export to base64 PNG
-      base64Image = tempCanvas.toDataURL({ format: 'png', multiplier: 1 });
-      tempCanvas.dispose();
-    } else {
-      // Fallback: robust rasterization using deep clones (never touch originals)
-      try {
-        const bounds = selectedObjects.reduce((acc, obj) => {
-          const left = obj.left ?? 0;
-          const top = obj.top ?? 0;
-          const width = obj.width ? obj.width * (obj.scaleX ?? 1) : 0;
-          const height = obj.height ? obj.height * (obj.scaleY ?? 1) : 0;
-          return {
-            minX: Math.min(acc.minX, left),
-            minY: Math.min(acc.minY, top),
-            maxX: Math.max(acc.maxX, left + width),
-            maxY: Math.max(acc.maxY, top + height)
-          };
-        }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
-        const width = Math.ceil(bounds.maxX - bounds.minX);
-        const height = Math.ceil(bounds.maxY - bounds.minY);
-        const tempCanvas = new fabric.Canvas(null, { width, height, backgroundColor: '#fff' });
-        // Deep clone all selected objects using toObject + enlivenObjects
-        const serialized = selectedObjects.map(obj => obj.toObject());
-        await new Promise<void>((resolve, reject) => {
-          fabric.util.enlivenObjects(serialized, (clones: any[]) => {
-            if (!clones || clones.length === 0) {
-              reject(new Error('No objects could be enlivened'));
-              return;
-            }
-            // Optionally group if more than one
-            let toAdd: any = clones;
-            if (clones.length > 1) {
-              toAdd = new fabric.Group(clones, { left: 0, top: 0 });
-            }
-            if (Array.isArray(toAdd)) {
-              toAdd.forEach((obj: any) => tempCanvas.add(obj));
-            } else {
-              tempCanvas.add(toAdd);
-            }
-            tempCanvas.renderAll();
-            base64Image = tempCanvas.toDataURL({ format: 'png', multiplier: 1 });
-            tempCanvas.dispose();
-            resolve();
-          });
+      const serialized = selectedObjects.map(obj => obj.toObject());
+      await new Promise<void>((resolve, reject) => {
+        fabric.util.enlivenObjects(serialized, (clones: any[]) => {
+          if (!clones || clones.length === 0) {
+            reject(new Error('No objects could be enlivened'));
+            return;
+          }
+          // Group if more than one
+          let toAdd: any = clones;
+          if (clones.length > 1) {
+            toAdd = new fabric.Group(clones, { left: 0, top: 0 });
+          }
+          if (Array.isArray(toAdd)) {
+            toAdd.forEach((obj: any) => tempCanvas.add(obj));
+          } else {
+            tempCanvas.add(toAdd);
+          }
+          tempCanvas.renderAll();
+          base64Image = tempCanvas.toDataURL({ format: 'png', multiplier: 1 });
+          tempCanvas.dispose();
+          resolve();
         });
-        console.log('Rasterized using robust deep clone fallback.');
-      } catch (e) {
-        console.warn('Robust rasterization fallback failed:', e);
-      }
+      });
+      console.log('[Sketch AI] Rasterization complete, base64Image length:', base64Image?.length);
+    } catch (e) {
+      setAiStatus('idle');
+      alert('[Sketch AI] Rasterization failed: ' + (e instanceof Error ? e.message : String(e)));
+      console.error('[Sketch AI] Rasterization error:', e);
+      return;
     }
     if (!base64Image) {
       alert('Failed to rasterize any selected objects for AI generation.');
