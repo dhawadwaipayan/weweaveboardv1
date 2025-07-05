@@ -12,10 +12,11 @@ export interface ModePanelProps {
   onBoundingBoxCreated?: () => void;
   showSketchSubBar?: boolean;
   closeSketchBar?: () => void;
+  selectedMode?: string;
+  setSelectedMode?: (mode: string) => void;
 }
 
-export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeActivated, onBoundingBoxCreated, showSketchSubBar, closeSketchBar }) => {
-  const [selectedMode, setSelectedMode] = useState<string>('');
+export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeActivated, onBoundingBoxCreated, showSketchSubBar, closeSketchBar, selectedMode, setSelectedMode }) => {
   const [showRenderSubBar, setShowRenderSubBar] = useState(false);
   const [aiStatus, setAiStatus] = useState<'idle' | 'generating' | 'error' | 'success'>('idle');
   const [aiError, setAiError] = useState<string | null>(null);
@@ -38,7 +39,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     label: 'Sides'
   }];
   const handleModeSelect = (modeId: string) => {
-    setSelectedMode(modeId);
+    if (setSelectedMode) setSelectedMode(modeId);
     if (modeId === 'sketch') {
       setShowRenderSubBar(false);
       if (onSketchModeActivated) onSketchModeActivated();
@@ -54,7 +55,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
 
   const handleSketchCancel = () => {
     if (closeSketchBar) closeSketchBar();
-    setSelectedMode(''); // Reset to non-clicked state
+    if (setSelectedMode) setSelectedMode(''); // Reset to non-clicked state
   };
 
   // Bounding box state for Sketch mode
@@ -285,7 +286,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
 
   const handleRenderCancel = () => {
     setShowRenderSubBar(false);
-    setSelectedMode(''); // Reset to non-clicked state
+    if (setSelectedMode) setSelectedMode(''); // Reset to non-clicked state
   };
 
   const handleRenderGenerate = (details: string) => {

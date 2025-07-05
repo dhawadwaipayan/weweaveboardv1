@@ -10,16 +10,18 @@ const Index = () => {
   const [selectedImageSrc, setSelectedImageSrc] = useState<string | null>(null);
   const [sketchBarOpen, setSketchBarOpen] = useState(false);
   const [boundingBoxCreated, setBoundingBoxCreated] = useState(false);
+  const [selectedMode, setSelectedMode] = useState<string>('');
   const canvasRef = useRef<CanvasHandle>(null);
   
   const handleToolSelect = (toolId: string) => {
-    // If Sketch bar is open and bounding box is not yet created, close Sketch bar
     if (sketchBarOpen && !boundingBoxCreated) {
       setSketchBarOpen(false);
       setSelectedTool(toolId);
+      setSelectedMode('');
       return;
     }
     setSelectedTool(toolId);
+    setSelectedMode(toolId);
     console.log(`Tool selected: ${toolId}`);
   };
 
@@ -69,6 +71,8 @@ const Index = () => {
               onBoundingBoxCreated={handleBoundingBoxCreated}
               showSketchSubBar={sketchBarOpen}
               closeSketchBar={handleCloseSketchBar}
+              selectedMode={selectedMode}
+              setSelectedMode={setSelectedMode}
             />
           </div>
         </div>

@@ -53,9 +53,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button 
             key={tool.id} 
             onClick={() => handleToolSelect(tool.id)} 
-            className={`group flex items-center justify-center w-[30px] h-[30px] rounded-lg transition-colors duration-75${isActive ? ' ring-2 ring-[#E1FF00]' : ''}`} 
+            className="group flex items-center justify-center w-[30px] h-[30px] rounded-lg transition-colors duration-75" 
             title={tool.label}
-            style={{ backgroundColor: isActive ? '#232323' : undefined, outline: 'none', border: 'none' }}
             tabIndex={0}
           >
             <IconComponent 
