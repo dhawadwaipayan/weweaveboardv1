@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Canvas as FabricCanvas, Rect, Point } from 'fabric';
+import { Canvas as FabricCanvas, Rect, Point, IText } from 'fabric';
 
 interface Frame {
   id: string;
@@ -113,7 +113,6 @@ export const useToolEventHandlers = ({
 
         case 'text':
           console.log('Adding text at:', pointer.x, pointer.y);
-          const { IText } = require('fabric');
           const text = new IText('Click to edit text', {
             left: pointer.x,
             top: pointer.y,
