@@ -68,14 +68,10 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
     const selectedObjects = fabricCanvas.getActiveObjects();
     // Debug: log selected objects and their types and constructors
     console.log('Selected objects for rasterization:', selectedObjects.map(obj => ({ type: obj.type, constructor: obj.constructor?.name, obj })));
-    // Robust rasterization: crop main canvas to selection bounding box
+    // Robust rasterization: always deep clone selection, never touch originals
     let base64Image = null;
     try {
-      console.log('[Sketch AI] Starting bounding box crop rasterization...');
-      if (selectedObjects.length === 0) {
-        throw new Error('No objects selected');
-      }
-      // Calculate bounding box
+      console.log('[Sketch AI] Starting robust rasterization...');
       const bounds = selectedObjects.reduce((acc, obj) => {
         const left = obj.left ?? 0;
         const top = obj.top ?? 0;
@@ -88,14 +84,32 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
           maxY: Math.max(acc.maxY, top + height)
         };
       }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
-      const left = Math.floor(bounds.minX);
-      const top = Math.floor(bounds.minY);
       const width = Math.ceil(bounds.maxX - bounds.minX);
       const height = Math.ceil(bounds.maxY - bounds.minY);
-      if (width <= 0 || height <= 0) {
-        throw new Error('Invalid selection bounding box');
-      }
-      base64Image = fabricCanvas.toDataURL({ left, top, width, height, format: 'png', multiplier: 1 });
+      const tempCanvas = new fabric.Canvas(null, { width, height, backgroundColor: '#fff' });
+      const serialized = selectedObjects.map(obj => obj.toObject());
+      await new Promise<void>((resolve, reject) => {
+        fabric.util.enlivenObjects(serialized, (clones: any[]) => {
+          if (!clones || clones.length === 0) {
+            reject(new Error('No objects could be enlivened'));
+            return;
+          }
+          // Group if more than one
+          let toAdd: any = clones;
+          if (clones.length > 1) {
+            toAdd = new fabric.Group(clones, { left: 0, top: 0 });
+          }
+          if (Array.isArray(toAdd)) {
+            toAdd.forEach((obj: any) => tempCanvas.add(obj));
+          } else {
+            tempCanvas.add(toAdd);
+          }
+          tempCanvas.renderAll();
+          base64Image = tempCanvas.toDataURL({ format: 'png', multiplier: 1 });
+          tempCanvas.dispose();
+          resolve();
+        });
+      });
       console.log('[Sketch AI] Rasterization complete, base64Image length:', base64Image?.length);
     } catch (e) {
       setAiStatus('idle');
