@@ -16,6 +16,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
   const [showRenderSubBar, setShowRenderSubBar] = useState(false);
   const [aiStatus, setAiStatus] = useState<'idle' | 'generating' | 'error' | 'success'>('idle');
   const [aiError, setAiError] = useState<string | null>(null);
+  const [lastInputImage, setLastInputImage] = useState<string | null>(null);
   const modes = [{
     id: 'sketch',
     icon: 'https://cdn.builder.io/api/v1/image/assets/49361a2b7ce44657a799a73862a168f7/ee2941b19a658fe2d209f852cf910c39252d3c4f?placeholderIfAbsent=true',
@@ -113,6 +114,14 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
         height: cropHeight,
         multiplier: 1
       });
+      setLastInputImage(base64Image);
+      // Auto-download the image
+      const link = document.createElement('a');
+      link.href = base64Image;
+      link.download = 'openai-input.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       console.log('[Sketch AI] Cropped base64Image length:', base64Image?.length);
     } catch (e) {
       setAiStatus('idle');
@@ -225,6 +234,22 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
           </div>
         )}
       </div>
+      {/* Download Input Image Button */}
+      {lastInputImage && (
+        <button
+          className="mb-2 px-4 py-2 rounded bg-gray-700 text-white hover:bg-gray-800"
+          onClick={() => {
+            const link = document.createElement('a');
+            link.href = lastInputImage;
+            link.download = 'openai-input.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }}
+        >
+          Download Input Image
+        </button>
+      )}
       {showSketchSubBar && (
         <SketchSubBar 
           onCancel={handleSketchCancel}
