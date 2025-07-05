@@ -9,6 +9,7 @@ import { useHandTool } from '@/hooks/useHandTool';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
 import { CanvasToolIndicator } from './CanvasToolIndicator';
 import { FrameContainer } from '@/lib/FrameContainer';
+import { useFrameManager } from '@/hooks/useFrameManager';
 
 interface CanvasProps {
   className?: string;
@@ -37,6 +38,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
     // New simplified architecture
     useSimpleToolSwitching(fabricCanvas, selectedTool);
     useObjectStateManager(fabricCanvas, selectedTool);
+    useFrameManager(fabricCanvas);
     
     // Tool-specific handlers
     useTextTool(fabricCanvas, selectedTool);
@@ -144,7 +146,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
       };
     }, [fabricCanvas, onSelectedImageSrcChange]);
 
-    // Frame tool: add 2000x2000 frame at click position
+    // Frame tool: add 500x500 frame at click position
     useEffect(() => {
       if (!fabricCanvas) return;
       if (selectedTool !== 'frame') return;
@@ -156,14 +158,15 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
         const frame = new FrameContainer([], {
           left: pointer.x,
           top: pointer.y,
-          width: 2000,
-          height: 2000,
+          width: 500,
+          height: 500,
           selectable: true,
           evented: true,
         });
         frame.setCanvas(fabricCanvas);
         fabricCanvas.add(frame);
         frame.sendToBack();
+        frame.updateChildren();
         fabricCanvas.setActiveObject(frame);
         fabricCanvas.renderAll();
       };
