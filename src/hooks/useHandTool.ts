@@ -19,7 +19,15 @@ export const useHandTool = ({
   setLastPanPoint
 }: UseHandToolProps) => {
   useEffect(() => {
-    if (!fabricCanvas || selectedTool !== 'hand') return;
+    if (!fabricCanvas) return;
+    
+    // FREEZE: Skip during drawing mode
+    if (selectedTool === 'draw') {
+      console.log('HandTool: Frozen during drawing mode');
+      return;
+    }
+    
+    if (selectedTool !== 'hand') return;
 
     const handleMouseDown = (opt: any) => {
       const pointer = fabricCanvas.getPointer(opt.e);

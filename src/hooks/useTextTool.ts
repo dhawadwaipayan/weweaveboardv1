@@ -6,7 +6,15 @@ export const useTextTool = (
   selectedTool: string
 ) => {
   useEffect(() => {
-    if (!fabricCanvas || selectedTool !== 'text') return;
+    if (!fabricCanvas) return;
+    
+    // FREEZE: Skip during drawing mode
+    if (selectedTool === 'draw') {
+      console.log('TextTool: Frozen during drawing mode');
+      return;
+    }
+    
+    if (selectedTool !== 'text') return;
 
     const handleTextCreation = (opt: any) => {
       const pointer = fabricCanvas.getPointer(opt.e);

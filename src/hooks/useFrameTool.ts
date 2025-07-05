@@ -25,7 +25,15 @@ export const useFrameTool = ({
   setFrames
 }: UseFrameToolProps) => {
   useEffect(() => {
-    if (!fabricCanvas || selectedTool !== 'frame') return;
+    if (!fabricCanvas) return;
+    
+    // FREEZE: Skip during drawing mode
+    if (selectedTool === 'draw') {
+      console.log('FrameTool: Frozen during drawing mode');
+      return;
+    }
+    
+    if (selectedTool !== 'frame') return;
 
     const handleFrameCreation = (opt: any) => {
       if (isCreatingFrame) return;
@@ -76,10 +84,11 @@ export const useFrameTool = ({
         if ((frame.width || 0) > 10 && (frame.height || 0) > 10) {
           console.log('Frame created successfully, making selectable');
           
-          // Make frame selectable and add to frames list
+          // Make frame selectable and add metadata to prevent override
           frame.set({ 
             selectable: true, 
-            evented: true 
+            evented: true,
+            isFrameObject: true // Mark as frame for object manager
           });
           
           const newFrame: Frame = {
