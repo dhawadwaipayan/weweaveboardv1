@@ -9,11 +9,13 @@ import * as fabric from 'fabric';
 export interface ModePanelProps {
   canvasRef: React.RefObject<CanvasHandle>;
   onSketchModeActivated?: () => void;
+  onBoundingBoxCreated?: () => void;
+  showSketchSubBar?: boolean;
+  closeSketchBar?: () => void;
 }
 
-export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeActivated }) => {
+export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeActivated, onBoundingBoxCreated, showSketchSubBar, closeSketchBar }) => {
   const [selectedMode, setSelectedMode] = useState<string>('');
-  const [showSketchSubBar, setShowSketchSubBar] = useState(false);
   const [showRenderSubBar, setShowRenderSubBar] = useState(false);
   const [aiStatus, setAiStatus] = useState<'idle' | 'generating' | 'error' | 'success'>('idle');
   const [aiError, setAiError] = useState<string | null>(null);
@@ -38,21 +40,20 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
   const handleModeSelect = (modeId: string) => {
     setSelectedMode(modeId);
     if (modeId === 'sketch') {
-      setShowSketchSubBar(true);
       setShowRenderSubBar(false);
       if (onSketchModeActivated) onSketchModeActivated();
     } else if (modeId === 'render') {
       setShowRenderSubBar(true);
-      setShowSketchSubBar(false);
+      if (closeSketchBar) closeSketchBar();
     } else {
-      setShowSketchSubBar(false);
+      if (closeSketchBar) closeSketchBar();
       setShowRenderSubBar(false);
     }
     console.log(`Selected mode: ${modeId}`);
   };
 
   const handleSketchCancel = () => {
-    setShowSketchSubBar(false);
+    if (closeSketchBar) closeSketchBar();
     setSelectedMode(''); // Reset to non-clicked state
   };
 
@@ -162,6 +163,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       fabricCanvas.off('mouse:move', handleMouseMove);
       fabricCanvas.off('mouse:up', handleMouseUp);
       fabricCanvas.defaultCursor = 'default';
+      if (onBoundingBoxCreated) onBoundingBoxCreated();
     };
     fabricCanvas.on('mouse:down', handleMouseDown);
     fabricCanvas.on('mouse:move', handleMouseMove);
@@ -278,6 +280,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       alert('[Sketch AI] Error: ' + (err instanceof Error ? err.message : String(err)));
       console.error('[Sketch AI] Error:', err);
     }
+    if (onBoundingBoxCreated) onBoundingBoxCreated();
   };
 
   const handleRenderCancel = () => {
