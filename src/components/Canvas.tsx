@@ -8,8 +8,6 @@ import { useTextTool } from '@/hooks/useTextTool';
 import { useHandTool } from '@/hooks/useHandTool';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
 import { CanvasToolIndicator } from './CanvasToolIndicator';
-import { FrameContainer } from '@/lib/FrameContainer';
-import { useFrameManager } from '@/hooks/useFrameManager';
 
 interface CanvasProps {
   className?: string;
@@ -38,7 +36,6 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
     // New simplified architecture
     useSimpleToolSwitching(fabricCanvas, selectedTool);
     useObjectStateManager(fabricCanvas, selectedTool);
-    useFrameManager(fabricCanvas);
     
     // Tool-specific handlers
     useTextTool(fabricCanvas, selectedTool);
@@ -145,36 +142,6 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
         fabricCanvas.off('selection:cleared', handleSelection);
       };
     }, [fabricCanvas, onSelectedImageSrcChange]);
-
-    // Frame tool: add 500x500 frame at click position
-    useEffect(() => {
-      if (!fabricCanvas) return;
-      if (selectedTool !== 'frame') return;
-
-      const handleFrameClick = (opt: any) => {
-        // Only add on left click
-        if (opt.e && opt.e.button !== 0) return;
-        const pointer = fabricCanvas.getPointer(opt.e);
-        const frame = new FrameContainer([], {
-          left: pointer.x,
-          top: pointer.y,
-          width: 500,
-          height: 500,
-          selectable: true,
-          evented: true,
-        });
-        frame.setCanvas(fabricCanvas);
-        fabricCanvas.add(frame);
-        frame.sendToBack();
-        frame.updateChildren();
-        fabricCanvas.setActiveObject(frame);
-        fabricCanvas.renderAll();
-      };
-      fabricCanvas.on('mouse:down', handleFrameClick);
-      return () => {
-        fabricCanvas.off('mouse:down', handleFrameClick);
-      };
-    }, [fabricCanvas, selectedTool]);
 
     return (
       <div className={`fixed inset-0 z-0 overflow-hidden ${className}`}>
