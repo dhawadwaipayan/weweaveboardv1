@@ -306,22 +306,6 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
           </div>
         )}
       </div>
-      {/* Download Input Image Button */}
-      {lastInputImage && (
-        <button
-          className="mb-2 px-4 py-2 rounded bg-gray-700 text-white hover:bg-gray-800"
-          onClick={() => {
-            const link = document.createElement('a');
-            link.href = lastInputImage;
-            link.download = 'openai-input.png';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          }}
-        >
-          Download Input Image
-        </button>
-      )}
       {showSketchSubBar && (
         <SketchSubBar 
           onCancel={handleSketchCancel}
