@@ -66,31 +66,49 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
     }
     const selectedObjects = fabricCanvas.getActiveObjects();
     // Prepare input for OpenAI
-    let base64Image: string | null = null;
     let annotationText: string = '';
-    let strokeImage: string | null = null;
-
+    let hasVisual = false;
+    // Check if any selected object is visual (image, path, shape, etc.)
     selectedObjects.forEach(obj => {
-      if (obj.type === 'image' && (obj as any).toDataURL) {
-        // Use the first image as the base64 input
-        if (!base64Image) {
-          base64Image = (obj as any).toDataURL({ format: 'png' });
-        }
-      } else if (obj.type === 'i-text' || obj.type === 'text') {
+      if (obj.type === 'i-text' || obj.type === 'text') {
         annotationText += (obj as any).text + ' ';
-      } else if (obj.type === 'path' && (obj as any).toDataURL) {
-        // For drawn strokes, rasterize to PNG
-        if (!strokeImage) {
-          strokeImage = (obj as any).toDataURL({ format: 'png' });
-        }
+      } else {
+        hasVisual = true;
       }
     });
-
-    if (!base64Image) {
-      alert('Please select an image as input for AI generation.');
+    if (!hasVisual) {
+      alert('Please select at least one visual object (image, stroke, or shape) for AI generation.');
       return;
     }
-
+    // Rasterize selected objects to PNG
+    // 1. Clone selected objects
+    const clones = await Promise.all(selectedObjects.map(obj => new Promise<any>(resolve => (obj as any).clone(resolve))));
+    // 2. Calculate bounding box
+    const bounds = selectedObjects.reduce((acc, obj) => {
+      const left = obj.left ?? 0;
+      const top = obj.top ?? 0;
+      const width = obj.width ? obj.width * (obj.scaleX ?? 1) : 0;
+      const height = obj.height ? obj.height * (obj.scaleY ?? 1) : 0;
+      return {
+        minX: Math.min(acc.minX, left),
+        minY: Math.min(acc.minY, top),
+        maxX: Math.max(acc.maxX, left + width),
+        maxY: Math.max(acc.maxY, top + height)
+      };
+    }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+    const width = Math.ceil(bounds.maxX - bounds.minX);
+    const height = Math.ceil(bounds.maxY - bounds.minY);
+    // 3. Create temp canvas
+    const fabricNS = (window as any).fabric;
+    const tempCanvas = new fabricNS.Canvas(null, { width, height, backgroundColor: '#fff' });
+    clones.forEach((obj: any) => {
+      obj.set({ left: (obj.left ?? 0) - bounds.minX, top: (obj.top ?? 0) - bounds.minY });
+      tempCanvas.add(obj);
+    });
+    tempCanvas.renderAll();
+    // 4. Export to base64 PNG
+    const base64Image = tempCanvas.toDataURL({ format: 'png' });
+    tempCanvas.dispose();
     const promptText = `Generate Image by redoing the flat sketch in the same style, incorporating the prompts indicated in the image. ${annotationText.trim()} ${details}`.trim();
     try {
       const result = await callOpenAIGptImage({
