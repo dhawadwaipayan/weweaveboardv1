@@ -31,10 +31,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     id: 'text',
     icon: TextT,
     label: 'Text'
-  }, {
-    id: 'frame',
-    icon: RectangleDashed,
-    label: 'Frame'
   }];
   const handleToolSelect = (toolId: string) => {
     setSelectedTool(toolId);
