@@ -48,7 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             title={tool.label}
           >
             <IconComponent 
-              size={30} 
+              size={20} 
               color={iconColor}
               className="group-hover:text-white transition-colors duration-75"
               style={{ color: isActive ? '#E1FF00' : undefined }}
