@@ -7,7 +7,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({
   onToolSelect
 }) => {
-  const [selectedTool, setSelectedTool] = useState<string>('');
+  const [selectedTool, setSelectedTool] = useState<string>('move');
   const tools = [{
     id: 'move',
     icon: ArrowsOutCardinal,
@@ -30,7 +30,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     label: 'Frame'
   }];
   const handleToolSelect = (toolId: string) => {
-    setSelectedTool(selectedTool === toolId ? '' : toolId);
+    setSelectedTool(toolId);
     onToolSelect?.(toolId);
     console.log(`Selected tool: ${toolId}`);
   };
