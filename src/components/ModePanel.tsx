@@ -94,16 +94,14 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
             reject(new Error('No objects could be enlivened'));
             return;
           }
-          // Group if more than one
-          let toAdd: any = clones;
-          if (clones.length > 1) {
-            toAdd = new fabric.Group(clones, { left: 0, top: 0 });
-          }
-          if (Array.isArray(toAdd)) {
-            toAdd.forEach((obj: any) => tempCanvas.add(obj));
-          } else {
-            tempCanvas.add(toAdd);
-          }
+          // Offset each clone by -bounds.minX, -bounds.minY
+          clones.forEach((obj: any) => {
+            obj.set({
+              left: (obj.left ?? 0) - bounds.minX,
+              top: (obj.top ?? 0) - bounds.minY
+            });
+            tempCanvas.add(obj);
+          });
           tempCanvas.renderAll();
           base64Image = tempCanvas.toDataURL({ format: 'png', multiplier: 1 });
           tempCanvas.dispose();
