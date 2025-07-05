@@ -8,6 +8,7 @@ import { useTextTool } from '@/hooks/useTextTool';
 import { useHandTool } from '@/hooks/useHandTool';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
 import { CanvasToolIndicator } from './CanvasToolIndicator';
+import { FrameContainer } from '@/lib/FrameContainer';
 
 interface CanvasProps {
   className?: string;
@@ -142,6 +143,35 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
         fabricCanvas.off('selection:cleared', handleSelection);
       };
     }, [fabricCanvas, onSelectedImageSrcChange]);
+
+    // Frame tool: add 2000x2000 frame at click position
+    useEffect(() => {
+      if (!fabricCanvas) return;
+      if (selectedTool !== 'frame') return;
+
+      const handleFrameClick = (opt: any) => {
+        // Only add on left click
+        if (opt.e && opt.e.button !== 0) return;
+        const pointer = fabricCanvas.getPointer(opt.e);
+        const frame = new FrameContainer([], {
+          left: pointer.x,
+          top: pointer.y,
+          width: 2000,
+          height: 2000,
+          selectable: true,
+          evented: true,
+        });
+        frame.setCanvas(fabricCanvas);
+        fabricCanvas.add(frame);
+        frame.sendToBack();
+        fabricCanvas.setActiveObject(frame);
+        fabricCanvas.renderAll();
+      };
+      fabricCanvas.on('mouse:down', handleFrameClick);
+      return () => {
+        fabricCanvas.off('mouse:down', handleFrameClick);
+      };
+    }, [fabricCanvas, selectedTool]);
 
     return (
       <div className={`fixed inset-0 z-0 overflow-hidden ${className}`}>
