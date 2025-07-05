@@ -34,7 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onToolSelect?.(toolId);
     console.log(`Selected tool: ${toolId}`);
   };
-  return <aside className="fixed left-6 top-1/2 transform -translate-y-1/2 z-20 bg-[#1a1a1a] border border-[#373737] rounded-xl p-3 flex flex-col gap-2 px-[3px]">
+  return <aside className="fixed left-6 top-1/2 transform -translate-y-1/2 z-20 w-[45px] bg-[#1a1a1a] border border-[#373737] rounded-xl p-3 flex flex-col gap-2 px-[3px]">
       {tools.map(tool => {
         const IconComponent = tool.icon;
         const isActive = selectedTool === tool.id;
