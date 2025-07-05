@@ -65,8 +65,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
       return;
     }
     const selectedObjects = fabricCanvas.getActiveObjects();
-    // Debug: log selected objects and their types
-    console.log('Selected objects for rasterization:', selectedObjects.map(obj => ({ type: obj.type, obj })));
+    // Debug: log selected objects and their types and constructors
+    console.log('Selected objects for rasterization:', selectedObjects.map(obj => ({ type: obj.type, constructor: obj.constructor?.name, obj })));
     // Rasterize selected objects to PNG
     // 1. Clone or copy selected objects
     const fabricNS = (window as any).fabric;
@@ -99,35 +99,70 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
         console.warn('Object is not cloneable or copyable:', obj);
       }
     }
-    if (clones.length === 0) {
+    let base64Image = null;
+    if (clones.length > 0) {
+      // 2. Calculate bounding box
+      const bounds = clones.reduce((acc, obj) => {
+        const left = obj.left ?? 0;
+        const top = obj.top ?? 0;
+        const width = obj.width ? obj.width * (obj.scaleX ?? 1) : 0;
+        const height = obj.height ? obj.height * (obj.scaleY ?? 1) : 0;
+        return {
+          minX: Math.min(acc.minX, left),
+          minY: Math.min(acc.minY, top),
+          maxX: Math.max(acc.maxX, left + width),
+          maxY: Math.max(acc.maxY, top + height)
+        };
+      }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+      const width = Math.ceil(bounds.maxX - bounds.minX);
+      const height = Math.ceil(bounds.maxY - bounds.minY);
+      // 3. Create temp canvas
+      const tempCanvas = new fabricNS.Canvas(null, { width, height, backgroundColor: '#fff' });
+      clones.forEach((obj: any) => {
+        obj.set({ left: (obj.left ?? 0) - bounds.minX, top: (obj.top ?? 0) - bounds.minY });
+        tempCanvas.add(obj);
+      });
+      tempCanvas.renderAll();
+      // 4. Export to base64 PNG
+      base64Image = tempCanvas.toDataURL({ format: 'png' });
+      tempCanvas.dispose();
+    } else {
+      // Fallback: try grouping the selected objects and rasterizing the group
+      try {
+        const bounds = selectedObjects.reduce((acc, obj) => {
+          const left = obj.left ?? 0;
+          const top = obj.top ?? 0;
+          const width = obj.width ? obj.width * (obj.scaleX ?? 1) : 0;
+          const height = obj.height ? obj.height * (obj.scaleY ?? 1) : 0;
+          return {
+            minX: Math.min(acc.minX, left),
+            minY: Math.min(acc.minY, top),
+            maxX: Math.max(acc.maxX, left + width),
+            maxY: Math.max(acc.maxY, top + height)
+          };
+        }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+        const width = Math.ceil(bounds.maxX - bounds.minX);
+        const height = Math.ceil(bounds.maxY - bounds.minY);
+        const tempCanvas = new fabricNS.Canvas(null, { width, height, backgroundColor: '#fff' });
+        // Group the selected objects
+        const group = new fabricNS.Group(selectedObjects.map((obj: any) => obj), {
+          left: 0,
+          top: 0
+        });
+        group.set({ left: 0, top: 0 });
+        tempCanvas.add(group);
+        tempCanvas.renderAll();
+        base64Image = tempCanvas.toDataURL({ format: 'png' });
+        tempCanvas.dispose();
+        console.log('Rasterized using group fallback.');
+      } catch (e) {
+        console.warn('Group rasterization fallback failed:', e);
+      }
+    }
+    if (!base64Image) {
       alert('Failed to rasterize any selected objects for AI generation.');
       return;
     }
-    // 2. Calculate bounding box
-    const bounds = clones.reduce((acc, obj) => {
-      const left = obj.left ?? 0;
-      const top = obj.top ?? 0;
-      const width = obj.width ? obj.width * (obj.scaleX ?? 1) : 0;
-      const height = obj.height ? obj.height * (obj.scaleY ?? 1) : 0;
-      return {
-        minX: Math.min(acc.minX, left),
-        minY: Math.min(acc.minY, top),
-        maxX: Math.max(acc.maxX, left + width),
-        maxY: Math.max(acc.maxY, top + height)
-      };
-    }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
-    const width = Math.ceil(bounds.maxX - bounds.minX);
-    const height = Math.ceil(bounds.maxY - bounds.minY);
-    // 3. Create temp canvas
-    const tempCanvas = new fabricNS.Canvas(null, { width, height, backgroundColor: '#fff' });
-    clones.forEach((obj: any) => {
-      obj.set({ left: (obj.left ?? 0) - bounds.minX, top: (obj.top ?? 0) - bounds.minY });
-      tempCanvas.add(obj);
-    });
-    tempCanvas.renderAll();
-    // 4. Export to base64 PNG
-    const base64Image = tempCanvas.toDataURL({ format: 'png' });
-    tempCanvas.dispose();
     // Prepare input for OpenAI
     let annotationText: string = '';
     selectedObjects.forEach(obj => {
