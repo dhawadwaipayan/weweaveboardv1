@@ -1,10 +1,20 @@
 import React, { useState } from 'react';
 
-import moveDefault from '@/assets/move-default-new.svg';
-import drawDefault from '@/assets/draw-default-new.svg';
-import shapeDefault from '@/assets/shape-default-new.svg';
-import textDefault from '@/assets/text-default-new.svg';
-import colorDefault from '@/assets/color-default-new.svg';
+import moveDefault from '@/assets/move-default.svg';
+import moveHover from '@/assets/move-hover.svg';
+import moveActive from '@/assets/move-active.svg';
+import drawDefault from '@/assets/draw-default.svg';
+import drawHover from '@/assets/draw-hover.svg';
+import drawActive from '@/assets/draw-active.svg';
+import shapeDefault from '@/assets/shape-default.svg';
+import shapeHover from '@/assets/shape-hover.svg';
+import shapeActive from '@/assets/shape-active.svg';
+import textDefault from '@/assets/text-default.svg';
+import textHover from '@/assets/text-hover.svg';
+import textActive from '@/assets/text-active.svg';
+import colorDefault from '@/assets/color-default.svg';
+import colorHover from '@/assets/color-hover.svg';
+import colorActive from '@/assets/color-active.svg';
 
 interface SidebarProps {
   onToolSelect?: (toolId: string) => void;
@@ -16,32 +26,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const tools = [{
     id: 'move',
     defaultIcon: moveDefault,
-    hoverIcon: moveDefault,
-    activeIcon: moveDefault,
+    hoverIcon: moveHover,
+    activeIcon: moveActive,
     label: 'Move'
   }, {
     id: 'draw',
     defaultIcon: drawDefault,
-    hoverIcon: drawDefault,
-    activeIcon: drawDefault,
+    hoverIcon: drawHover,
+    activeIcon: drawActive,
     label: 'Draw'
   }, {
     id: 'shape',
     defaultIcon: shapeDefault,
-    hoverIcon: shapeDefault,
-    activeIcon: shapeDefault,
+    hoverIcon: shapeHover,
+    activeIcon: shapeActive,
     label: 'Shape'
   }, {
     id: 'text',
     defaultIcon: textDefault,
-    hoverIcon: textDefault,
-    activeIcon: textDefault,
+    hoverIcon: textHover,
+    activeIcon: textActive,
     label: 'Text'
   }, {
     id: 'color',
     defaultIcon: colorDefault,
-    hoverIcon: colorDefault,
-    activeIcon: colorDefault,
+    hoverIcon: colorHover,
+    activeIcon: colorActive,
     label: 'Color'
   }];
   const handleToolSelect = (toolId: string) => {
