@@ -1,5 +1,6 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { Image as FabricImage } from 'fabric';
+import type { Canvas as FabricCanvas } from 'fabric';
 import { useCanvasInitialization } from '@/hooks/useCanvasInitialization';
 import { useSimpleToolSwitching } from '@/hooks/useSimpleToolSwitching';
 import { useObjectStateManager } from '@/hooks/useObjectStateManager';
@@ -14,137 +15,148 @@ interface CanvasProps {
   onSelectedImageSrcChange?: (src: string | null) => void;
 }
 
-export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = 'select', onSelectedImageSrcChange }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isPanning, setIsPanning] = useState(false);
-  const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 });
+export interface CanvasHandle {
+  getFabricCanvas: () => FabricCanvas | null;
+}
 
-  // Initialize Fabric.js canvas
-  const fabricCanvas = useCanvasInitialization(canvasRef);
+export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
+  ({ className = '', selectedTool = 'select', onSelectedImageSrcChange }, ref) => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [isPanning, setIsPanning] = useState(false);
+    const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 });
 
-  // New simplified architecture
-  useSimpleToolSwitching(fabricCanvas, selectedTool);
-  useObjectStateManager(fabricCanvas, selectedTool);
-  
-  // Tool-specific handlers
-  useTextTool(fabricCanvas, selectedTool);
-  
-  useHandTool({
-    fabricCanvas,
-    selectedTool
-  });
-  
-  useDeleteHandler(fabricCanvas, selectedTool);
+    // Initialize Fabric.js canvas
+    const fabricCanvas = useCanvasInitialization(canvasRef);
 
-  // Make drawn paths selectable when created
-  useEffect(() => {
-    if (!fabricCanvas) return;
+    // Expose fabricCanvas to parent
+    useImperativeHandle(ref, () => ({
+      getFabricCanvas: () => fabricCanvas
+    }), [fabricCanvas]);
 
-    const handlePathCreated = (e: any) => {
-      const path = e.path;
-      if (path) {
-        path.set({
-          selectable: true,
-          evented: true,
-        });
-        console.log('Path created and made selectable:', path);
-      }
-    };
+    // New simplified architecture
+    useSimpleToolSwitching(fabricCanvas, selectedTool);
+    useObjectStateManager(fabricCanvas, selectedTool);
+    
+    // Tool-specific handlers
+    useTextTool(fabricCanvas, selectedTool);
+    
+    useHandTool({
+      fabricCanvas,
+      selectedTool
+    });
+    
+    useDeleteHandler(fabricCanvas, selectedTool);
 
-    fabricCanvas.on('path:created', handlePathCreated);
+    // Make drawn paths selectable when created
+    useEffect(() => {
+      if (!fabricCanvas) return;
 
-    return () => {
-      fabricCanvas.off('path:created', handlePathCreated);
-    };
-  }, [fabricCanvas]);
-
-  // Register global image import handler for TopBar
-  useEffect(() => {
-    if (!fabricCanvas) return;
-
-    const handleImageImport = (file: File) => {
-      console.log('Canvas: Received image import request for:', file.name);
-      
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        console.log('Canvas: FileReader loaded, creating Fabric image');
-        
-        FabricImage.fromURL(result)
-          .then((img) => {
-            console.log('Canvas: Fabric image created, adding to canvas');
-            img.set({
-              left: 100,
-              top: 100,
-              scaleX: 0.5,
-              scaleY: 0.5,
-              selectable: true,
-              evented: true,
-            });
-            fabricCanvas.add(img);
-            fabricCanvas.renderAll();
-            console.log('Canvas: Image added successfully');
-          })
-          .catch((error) => {
-            console.error('Canvas: Error creating Fabric image:', error);
+      const handlePathCreated = (e: any) => {
+        const path = e.path;
+        if (path) {
+          path.set({
+            selectable: true,
+            evented: true,
           });
+          console.log('Path created and made selectable:', path);
+        }
       };
-      
-      reader.onerror = (error) => {
-        console.error('Canvas: FileReader error:', error);
+
+      fabricCanvas.on('path:created', handlePathCreated);
+
+      return () => {
+        fabricCanvas.off('path:created', handlePathCreated);
       };
-      
-      reader.readAsDataURL(file);
-    };
+    }, [fabricCanvas]);
 
-    // Register handler on window object for TopBar to use
-    (window as any).handleCanvasImageImport = handleImageImport;
-    console.log('Canvas: Image import handler registered on window');
+    // Register global image import handler for TopBar
+    useEffect(() => {
+      if (!fabricCanvas) return;
 
-    return () => {
-      delete (window as any).handleCanvasImageImport;
-      console.log('Canvas: Image import handler removed from window');
-    };
-  }, [fabricCanvas]);
+      const handleImageImport = (file: File) => {
+        console.log('Canvas: Received image import request for:', file.name);
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const result = e.target?.result as string;
+          console.log('Canvas: FileReader loaded, creating Fabric image');
+          
+          FabricImage.fromURL(result)
+            .then((img) => {
+              console.log('Canvas: Fabric image created, adding to canvas');
+              img.set({
+                left: 100,
+                top: 100,
+                scaleX: 0.5,
+                scaleY: 0.5,
+                selectable: true,
+                evented: true,
+              });
+              fabricCanvas.add(img);
+              fabricCanvas.renderAll();
+              console.log('Canvas: Image added successfully');
+            })
+            .catch((error) => {
+              console.error('Canvas: Error creating Fabric image:', error);
+            });
+        };
+        
+        reader.onerror = (error) => {
+          console.error('Canvas: FileReader error:', error);
+        };
+        
+        reader.readAsDataURL(file);
+      };
 
-  // Add state to track last selected image src
-  useEffect(() => {
-    if (!fabricCanvas || !onSelectedImageSrcChange) return;
+      // Register handler on window object for TopBar to use
+      (window as any).handleCanvasImageImport = handleImageImport;
+      console.log('Canvas: Image import handler registered on window');
 
-    const handleSelection = () => {
-      const active = fabricCanvas.getActiveObject();
-      if (active && active.type === 'image' && (active as any).getSrc) {
-        // For Fabric.Image, getSrc() returns the image src
-        onSelectedImageSrcChange((active as any).getSrc());
-      } else {
-        onSelectedImageSrcChange(null);
-      }
-    };
-    fabricCanvas.on('selection:created', handleSelection);
-    fabricCanvas.on('selection:updated', handleSelection);
-    fabricCanvas.on('selection:cleared', handleSelection);
-    // Initial check
-    handleSelection();
-    return () => {
-      fabricCanvas.off('selection:created', handleSelection);
-      fabricCanvas.off('selection:updated', handleSelection);
-      fabricCanvas.off('selection:cleared', handleSelection);
-    };
-  }, [fabricCanvas, onSelectedImageSrcChange]);
+      return () => {
+        delete (window as any).handleCanvasImageImport;
+        console.log('Canvas: Image import handler removed from window');
+      };
+    }, [fabricCanvas]);
 
-  return (
-    <div className={`fixed inset-0 z-0 overflow-hidden ${className}`}>
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0"
-        style={{ 
-          cursor: selectedTool === 'draw' ? 'crosshair' : 'default',
-          touchAction: 'none', // Prevent touch scrolling on mobile
-          pointerEvents: 'auto' // Ensure mouse events are captured
-        }}
-      />
-      
-      {/* <CanvasToolIndicator selectedTool={selectedTool} /> */}
-    </div>
-  );
-};
+    // Add state to track last selected image src
+    useEffect(() => {
+      if (!fabricCanvas || !onSelectedImageSrcChange) return;
+
+      const handleSelection = () => {
+        const active = fabricCanvas.getActiveObject();
+        if (active && active.type === 'image' && (active as any).getSrc) {
+          // For Fabric.Image, getSrc() returns the image src
+          onSelectedImageSrcChange((active as any).getSrc());
+        } else {
+          onSelectedImageSrcChange(null);
+        }
+      };
+      fabricCanvas.on('selection:created', handleSelection);
+      fabricCanvas.on('selection:updated', handleSelection);
+      fabricCanvas.on('selection:cleared', handleSelection);
+      // Initial check
+      handleSelection();
+      return () => {
+        fabricCanvas.off('selection:created', handleSelection);
+        fabricCanvas.off('selection:updated', handleSelection);
+        fabricCanvas.off('selection:cleared', handleSelection);
+      };
+    }, [fabricCanvas, onSelectedImageSrcChange]);
+
+    return (
+      <div className={`fixed inset-0 z-0 overflow-hidden ${className}`}>
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0"
+          style={{ 
+            cursor: selectedTool === 'draw' ? 'crosshair' : 'default',
+            touchAction: 'none', // Prevent touch scrolling on mobile
+            pointerEvents: 'auto' // Ensure mouse events are captured
+          }}
+        />
+        
+        {/* <CanvasToolIndicator selectedTool={selectedTool} /> */}
+      </div>
+    );
+  }
+);

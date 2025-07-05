@@ -1,11 +1,20 @@
 import React, { useState } from 'react';
 import { SketchSubBar } from './SketchSubBar';
 import { RenderSubBar } from './RenderSubBar';
+import type { CanvasHandle } from './Canvas';
+import { callOpenAIGptImage } from '@/lib/openaiSketch';
+import { Image as FabricImage } from 'fabric';
 
-export const ModePanel: React.FC = () => {
+interface ModePanelProps {
+  canvasRef: React.RefObject<CanvasHandle>;
+}
+
+export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
   const [selectedMode, setSelectedMode] = useState<string>('');
   const [showSketchSubBar, setShowSketchSubBar] = useState(false);
   const [showRenderSubBar, setShowRenderSubBar] = useState(false);
+  const [aiStatus, setAiStatus] = useState<'idle' | 'generating' | 'error' | 'success'>('idle');
+  const [aiError, setAiError] = useState<string | null>(null);
   const modes = [{
     id: 'sketch',
     icon: 'https://cdn.builder.io/api/v1/image/assets/49361a2b7ce44657a799a73862a168f7/ee2941b19a658fe2d209f852cf910c39252d3c4f?placeholderIfAbsent=true',
@@ -43,9 +52,118 @@ export const ModePanel: React.FC = () => {
     setSelectedMode(''); // Reset to non-clicked state
   };
 
-  const handleSketchGenerate = (details: string) => {
-    console.log('Generating with details:', details);
-    // Add your generation logic here
+  const handleSketchGenerate = async (details: string) => {
+    setAiStatus('generating');
+    setAiError(null);
+    if (!canvasRef.current) {
+      console.error('No canvas ref available');
+      return;
+    }
+    const fabricCanvas = canvasRef.current.getFabricCanvas();
+    if (!fabricCanvas) {
+      console.error('No fabric canvas instance');
+      return;
+    }
+    const selectedObjects = fabricCanvas.getActiveObjects();
+    // Prepare input for OpenAI
+    let base64Image: string | null = null;
+    let annotationText: string = '';
+    let strokeImage: string | null = null;
+
+    selectedObjects.forEach(obj => {
+      if (obj.type === 'image' && (obj as any).toDataURL) {
+        // Use the first image as the base64 input
+        if (!base64Image) {
+          base64Image = (obj as any).toDataURL({ format: 'png' });
+        }
+      } else if (obj.type === 'i-text' || obj.type === 'text') {
+        annotationText += (obj as any).text + ' ';
+      } else if (obj.type === 'path' && (obj as any).toDataURL) {
+        // For drawn strokes, rasterize to PNG
+        if (!strokeImage) {
+          strokeImage = (obj as any).toDataURL({ format: 'png' });
+        }
+      }
+    });
+
+    if (!base64Image) {
+      alert('Please select an image as input for AI generation.');
+      return;
+    }
+
+    const promptText = `Generate Image by redoing the flat sketch in the same style, incorporating the prompts indicated in the image. ${annotationText.trim()} ${details}`.trim();
+    try {
+      const result = await callOpenAIGptImage({
+        base64Image,
+        promptText
+      });
+      console.log('OpenAI API full response:', result);
+      // Handle partial image first
+      let partialImgObj: any = null;
+      let x = 100, y = 100;
+      if (selectedObjects.length > 0) {
+        // Place to the right of the rightmost selected object
+        const bounds = selectedObjects.reduce((acc, obj) => {
+          const left = obj.left ?? 0;
+          const top = obj.top ?? 0;
+          const width = obj.width ? obj.width * (obj.scaleX ?? 1) : 0;
+          const height = obj.height ? obj.height * (obj.scaleY ?? 1) : 0;
+          return {
+            minX: Math.min(acc.minX, left),
+            minY: Math.min(acc.minY, top),
+            maxX: Math.max(acc.maxX, left + width),
+            maxY: Math.max(acc.maxY, top + height)
+          };
+        }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+        x = bounds.maxX + 40; // 40px gap
+        y = bounds.minY;
+      }
+      // Try to get partial image
+      const partialUrl = result?.data?.partial_images?.[0]?.url || result?.partial_images?.[0]?.url;
+      if (partialUrl) {
+        partialImgObj = await FabricImage.fromURL(partialUrl);
+        partialImgObj.set({
+          left: x,
+          top: y,
+          scaleX: 0.5,
+          scaleY: 0.5,
+          selectable: true,
+          evented: true
+        });
+        fabricCanvas.add(partialImgObj);
+        fabricCanvas.renderAll();
+      }
+      // Now get the final image
+      const generatedImageUrl = result?.data?.image_url || result?.image_url || result?.data?.[0]?.url;
+      if (!generatedImageUrl) {
+        setAiStatus('error');
+        setAiError('No image returned from OpenAI.');
+        setTimeout(() => setAiStatus('idle'), 4000);
+        alert('No image returned from OpenAI.');
+        return;
+      }
+      const finalImgObj = await FabricImage.fromURL(generatedImageUrl);
+      finalImgObj.set({
+        left: x,
+        top: y,
+        scaleX: 0.5,
+        scaleY: 0.5,
+        selectable: true,
+        evented: true
+      });
+      if (partialImgObj) {
+        fabricCanvas.remove(partialImgObj);
+      }
+      fabricCanvas.add(finalImgObj);
+      fabricCanvas.renderAll();
+      setAiStatus('success');
+      setTimeout(() => setAiStatus('idle'), 2000);
+    } catch (err) {
+      setAiStatus('error');
+      setAiError(err instanceof Error ? err.message : String(err));
+      setTimeout(() => setAiStatus('idle'), 4000);
+      alert('OpenAI API error: ' + (err instanceof Error ? err.message : String(err)));
+    }
   };
 
   const handleRenderCancel = () => {
@@ -64,6 +182,16 @@ export const ModePanel: React.FC = () => {
   };
   return (
     <div className="flex flex-col items-center">
+      {/* AI Status Indicator */}
+      <div style={{ position: 'fixed', right: 24, bottom: 24, zIndex: 10000 }}>
+        {aiStatus !== 'idle' && (
+          <div className={`px-4 py-2 rounded shadow-lg text-sm font-medium transition-all duration-300 ${aiStatus === 'generating' ? 'bg-blue-800 text-white' : aiStatus === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+            {aiStatus === 'generating' && 'Generating with AI...'}
+            {aiStatus === 'success' && 'AI image generated!'}
+            {aiStatus === 'error' && (aiError || 'AI error')}
+          </div>
+        )}
+      </div>
       {showSketchSubBar && (
         <SketchSubBar 
           onCancel={handleSketchCancel}
