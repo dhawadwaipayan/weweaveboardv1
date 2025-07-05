@@ -83,6 +83,12 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       boundingBoxDrawing.current = true;
       const pointer = fabricCanvas.getPointer(opt.e);
       boundingBoxStart.current = { x: pointer.x, y: pointer.y };
+      // Lock all objects during bounding box creation
+      fabricCanvas.forEachObject(obj => {
+        obj.selectable = false;
+        obj.evented = false;
+      });
+      fabricCanvas.selection = false;
       // Create a temp rect
       const rect = new fabric.Rect({
         left: pointer.x,
@@ -134,6 +140,12 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
         width: boundingBoxRef.current.width! * (boundingBoxRef.current.scaleX ?? 1),
         height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
       });
+      // Unlock all objects after bounding box is created
+      fabricCanvas.forEachObject(obj => {
+        obj.selectable = true;
+        obj.evented = true;
+      });
+      fabricCanvas.selection = true;
       // Listen for changes
       boundingBoxRef.current.on('modified', () => {
         setSketchBoundingBox({
