@@ -1,4 +1,5 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
+import { Image as FabricImage } from 'fabric';
 import { useCanvasInitialization } from '@/hooks/useCanvasInitialization';
 import { useToolSwitching } from '@/hooks/useToolSwitching';
 import { useToolEventHandlers } from '@/hooks/useToolEventHandlers';
@@ -42,6 +43,41 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
     setLastPanPoint,
     setFrames
   });
+
+  // Global image import handler
+  useEffect(() => {
+    if (!fabricCanvas) return;
+
+    const handleImageImport = (event: CustomEvent) => {
+      const file = event.detail;
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const imgElement = new Image();
+        imgElement.onload = () => {
+          FabricImage.fromURL(e.target?.result as string)
+            .then((img) => {
+              img.set({
+                left: 100,
+                top: 100,
+                scaleX: 0.5,
+                scaleY: 0.5,
+              });
+              fabricCanvas.add(img);
+              fabricCanvas.renderAll();
+            });
+        };
+        imgElement.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    };
+
+    window.addEventListener('importImage', handleImageImport as EventListener);
+    return () => {
+      window.removeEventListener('importImage', handleImageImport as EventListener);
+    };
+  }, [fabricCanvas]);
 
   return (
     <div className={`fixed inset-0 z-0 overflow-hidden ${className}`}>

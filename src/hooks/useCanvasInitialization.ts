@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Canvas as FabricCanvas } from 'fabric';
+import { Canvas as FabricCanvas, Pattern } from 'fabric';
 
 export const useCanvasInitialization = (canvasRef: React.RefObject<HTMLCanvasElement>) => {
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
@@ -13,7 +13,7 @@ export const useCanvasInitialization = (canvasRef: React.RefObject<HTMLCanvasEle
       backgroundColor: '#1E1E1E',
     });
 
-    // Create and set grid background
+    // Create grid pattern using Fabric.js Pattern
     const createGridPattern = () => {
       const patternCanvas = document.createElement('canvas');
       const patternCtx = patternCanvas.getContext('2d');
@@ -34,12 +34,16 @@ export const useCanvasInitialization = (canvasRef: React.RefObject<HTMLCanvasEle
         patternCtx.stroke();
       }
       
-      return patternCanvas.toDataURL();
+      return patternCanvas;
     };
 
-    // Set grid background using CSS styling
-    const gridDataUrl = createGridPattern();
-    canvas.backgroundColor = `url(${gridDataUrl})`;
+    // Set grid background using Fabric.js Pattern
+    const gridCanvas = createGridPattern();
+    const pattern = new Pattern({
+      source: gridCanvas,
+      repeat: 'repeat'
+    });
+    canvas.backgroundColor = pattern;
 
     // Initialize the freeDrawingBrush properly
     if (canvas.freeDrawingBrush) {

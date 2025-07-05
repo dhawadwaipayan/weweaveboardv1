@@ -191,36 +191,11 @@ export const useToolEventHandlers = ({
       }
     };
 
-    // Object interaction handlers (only for select mode)
-    const handleObjectMoving = (e: any) => {
-      if (selectedTool !== 'select') return;
-      const obj = e.target;
-      if (!obj || obj.name !== 'frame') return;
-      fabricCanvas.renderAll();
-    };
-
-    const handleObjectSelected = (e: any) => {
-      if (selectedTool !== 'select') return;
-      const obj = e.target;
-      if (obj && obj.name === 'frame') {
-        console.log('Frame selected');
-      }
-    };
-
-    // Add event listeners based on tool
+    // Add event listeners
     fabricCanvas.on('mouse:down', handleMouseDown);
-    
-    if (selectedTool === 'hand') {
-      fabricCanvas.on('mouse:move', handleMouseMove);
-      fabricCanvas.on('mouse:up', handleMouseUp);
-      fabricCanvas.on('mouse:wheel', handleWheel);
-    }
-    
-    if (selectedTool === 'select') {
-      fabricCanvas.on('object:moving', handleObjectMoving);
-      fabricCanvas.on('selection:created', handleObjectSelected);
-      fabricCanvas.on('selection:updated', handleObjectSelected);
-    }
+    fabricCanvas.on('mouse:move', handleMouseMove);  
+    fabricCanvas.on('mouse:up', handleMouseUp);
+    fabricCanvas.on('mouse:wheel', handleWheel);
 
     return () => {
       // Clean up ALL event listeners
@@ -228,9 +203,6 @@ export const useToolEventHandlers = ({
       fabricCanvas.off('mouse:move', handleMouseMove);
       fabricCanvas.off('mouse:up', handleMouseUp);
       fabricCanvas.off('mouse:wheel', handleWheel);
-      fabricCanvas.off('object:moving', handleObjectMoving);
-      fabricCanvas.off('selection:created', handleObjectSelected);
-      fabricCanvas.off('selection:updated', handleObjectSelected);
     };
   }, [selectedTool, fabricCanvas, isCreatingFrame, isPanning, lastPanPoint, setIsCreatingFrame, setIsPanning, setLastPanPoint, setFrames]);
 
