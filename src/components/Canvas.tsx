@@ -1,8 +1,12 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Image as FabricImage } from 'fabric';
 import { useCanvasInitialization } from '@/hooks/useCanvasInitialization';
-import { useToolSwitching } from '@/hooks/useToolSwitching';
-import { useToolEventHandlers } from '@/hooks/useToolEventHandlers';
+import { useSimpleToolSwitching } from '@/hooks/useSimpleToolSwitching';
+import { useObjectStateManager } from '@/hooks/useObjectStateManager';
+import { useFrameTool } from '@/hooks/useFrameTool';
+import { useTextTool } from '@/hooks/useTextTool';
+import { useHandTool } from '@/hooks/useHandTool';
+import { useDeleteHandler } from '@/hooks/useDeleteHandler';
 import { CanvasToolIndicator } from './CanvasToolIndicator';
 
 interface CanvasProps {
@@ -28,21 +32,31 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
   // Initialize Fabric.js canvas
   const fabricCanvas = useCanvasInitialization(canvasRef);
 
-  // Handle tool switching
-  useToolSwitching(fabricCanvas, selectedTool, setIsCreatingFrame, setIsPanning);
-
-  // Handle tool-specific events
-  useToolEventHandlers({
+  // New simplified architecture
+  useSimpleToolSwitching(fabricCanvas, selectedTool);
+  useObjectStateManager(fabricCanvas, selectedTool);
+  
+  // Tool-specific handlers
+  useFrameTool({
     fabricCanvas,
     selectedTool,
     isCreatingFrame,
     setIsCreatingFrame,
+    setFrames
+  });
+  
+  useTextTool(fabricCanvas, selectedTool);
+  
+  useHandTool({
+    fabricCanvas,
+    selectedTool,
     isPanning,
     setIsPanning,
     lastPanPoint,
-    setLastPanPoint,
-    setFrames
+    setLastPanPoint
   });
+  
+  useDeleteHandler(fabricCanvas, selectedTool);
 
   // Global image import handler
   useEffect(() => {
