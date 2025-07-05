@@ -6,11 +6,12 @@ import { callOpenAIGptImage } from '@/lib/openaiSketch';
 import { Image as FabricImage } from 'fabric';
 import * as fabric from 'fabric';
 
-interface ModePanelProps {
+export interface ModePanelProps {
   canvasRef: React.RefObject<CanvasHandle>;
+  onSketchModeActivated?: () => void;
 }
 
-export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
+export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeActivated }) => {
   const [selectedMode, setSelectedMode] = useState<string>('');
   const [showSketchSubBar, setShowSketchSubBar] = useState(false);
   const [showRenderSubBar, setShowRenderSubBar] = useState(false);
@@ -39,6 +40,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
     if (modeId === 'sketch') {
       setShowSketchSubBar(true);
       setShowRenderSubBar(false);
+      if (onSketchModeActivated) onSketchModeActivated();
     } else if (modeId === 'render') {
       setShowRenderSubBar(true);
       setShowSketchSubBar(false);

@@ -15,6 +15,11 @@ const Index = () => {
     console.log(`Tool selected: ${toolId}`);
   };
 
+  // Handler to be called when Sketch mode is activated
+  const handleSketchModeActivated = () => {
+    setSelectedTool('select');
+  };
+
   return (
     <main className="bg-[rgba(33,33,33,1)] flex flex-col overflow-hidden min-h-screen relative">
       {/* Canvas Background - behind everything */}
@@ -35,7 +40,7 @@ const Index = () => {
           
           <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-2.5 pointer-events-auto">
             <GenerationPanel />
-            <ModePanel canvasRef={canvasRef} />
+            <ModePanel canvasRef={canvasRef} onSketchModeActivated={handleSketchModeActivated} />
           </div>
         </div>
       </div>
