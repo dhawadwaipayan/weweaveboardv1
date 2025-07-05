@@ -68,10 +68,11 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
     const selectedObjects = fabricCanvas.getActiveObjects();
     // Debug: log selected objects and their types and constructors
     console.log('Selected objects for rasterization:', selectedObjects.map(obj => ({ type: obj.type, constructor: obj.constructor?.name, obj })));
-    // Robust rasterization: always deep clone selection, never touch originals
+    // Export only the intersection of the selection bounding box and the visible canvas area
     let base64Image = null;
     try {
-      console.log('[Sketch AI] Starting robust rasterization...');
+      console.log('[Sketch AI] Starting visible bounding box rasterization...');
+      // 1. Get selection bounding box
       const bounds = selectedObjects.reduce((acc, obj) => {
         const left = obj.left ?? 0;
         const top = obj.top ?? 0;
@@ -84,31 +85,35 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
           maxY: Math.max(acc.maxY, top + height)
         };
       }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
-      const width = Math.ceil(bounds.maxX - bounds.minX);
-      const height = Math.ceil(bounds.maxY - bounds.minY);
-      const tempCanvas = new fabric.Canvas(null, { width, height, backgroundColor: '#fff' });
-      const serialized = selectedObjects.map(obj => obj.toObject());
-      await new Promise<void>((resolve, reject) => {
-        fabric.util.enlivenObjects(serialized, (clones: any[]) => {
-          if (!clones || clones.length === 0) {
-            reject(new Error('No objects could be enlivened'));
-            return;
-          }
-          // Offset each clone by -bounds.minX, -bounds.minY
-          clones.forEach((obj: any) => {
-            obj.set({
-              left: (obj.left ?? 0) - bounds.minX,
-              top: (obj.top ?? 0) - bounds.minY
-            });
-            tempCanvas.add(obj);
-          });
-          tempCanvas.renderAll();
-          base64Image = tempCanvas.toDataURL({ format: 'png', multiplier: 1 });
-          tempCanvas.dispose();
-          resolve();
-        });
+      // 2. Get visible area in canvas coordinates
+      const vpt = fabricCanvas.viewportTransform;
+      const scale = vpt[0];
+      const panX = vpt[4];
+      const panY = vpt[5];
+      const visibleLeft = -panX / scale;
+      const visibleTop = -panY / scale;
+      const visibleWidth = fabricCanvas.getWidth() / scale;
+      const visibleHeight = fabricCanvas.getHeight() / scale;
+      // 3. Calculate intersection (crop area)
+      const cropLeft = Math.max(bounds.minX, visibleLeft);
+      const cropTop = Math.max(bounds.minY, visibleTop);
+      const cropRight = Math.min(bounds.maxX, visibleLeft + visibleWidth);
+      const cropBottom = Math.min(bounds.maxY, visibleTop + visibleHeight);
+      const cropWidth = cropRight - cropLeft;
+      const cropHeight = cropBottom - cropTop;
+      if (cropWidth <= 0 || cropHeight <= 0) {
+        throw new Error('Selection is not visible in the current viewport.');
+      }
+      // 4. Export the cropped area as PNG
+      base64Image = fabricCanvas.toDataURL({
+        format: 'png',
+        left: cropLeft,
+        top: cropTop,
+        width: cropWidth,
+        height: cropHeight,
+        multiplier: 1
       });
-      console.log('[Sketch AI] Rasterization complete, base64Image length:', base64Image?.length);
+      console.log('[Sketch AI] Cropped base64Image length:', base64Image?.length);
     } catch (e) {
       setAiStatus('idle');
       alert('[Sketch AI] Rasterization failed: ' + (e instanceof Error ? e.message : String(e)));
