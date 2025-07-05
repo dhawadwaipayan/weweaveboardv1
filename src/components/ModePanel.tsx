@@ -65,14 +65,29 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
       console.error('No fabric canvas instance');
       return;
     }
-    const selectedObjects = fabricCanvas.getActiveObjects();
-    // Debug: log selected objects and their types and constructors
-    console.log('Selected objects for rasterization:', selectedObjects.map(obj => ({ type: obj.type, constructor: obj.constructor?.name, obj })));
-    // Robust rasterization: always deep clone selection, never touch originals
+    // Use the selected (active) frame for AI input
+    const activeObject = fabricCanvas.getActiveObject();
+    if (!activeObject || !(activeObject as any).isFrameContainer) {
+      setAiStatus('idle');
+      alert('Please select a frame to use as input for AI generation.');
+      return;
+    }
+    const frame = activeObject as any; // FrameContainer
+    // Get all objects inside the selected frame
+    const frameObjects = frame.getObjects ? frame.getObjects() : [];
+    if (!frameObjects.length) {
+      setAiStatus('idle');
+      alert('No objects found inside the selected frame. Please add objects to the frame for AI generation.');
+      return;
+    }
+    // Debug: log frame objects and their types and constructors
+    console.log('Frame objects for rasterization:', frameObjects.map(obj => ({ type: obj.type, constructor: obj.constructor?.name, obj })));
+    // Robust rasterization: always deep clone frame objects, never touch originals
     let base64Image = null;
     try {
-      console.log('[Sketch AI] Starting robust rasterization...');
-      const bounds = selectedObjects.reduce((acc, obj) => {
+      console.log('[Sketch AI] Starting robust rasterization (frame)...');
+      // Compute bounds of all frame objects
+      const bounds = frameObjects.reduce((acc, obj) => {
         const left = obj.left ?? 0;
         const top = obj.top ?? 0;
         const width = obj.width ? obj.width * (obj.scaleX ?? 1) : 0;
@@ -87,9 +102,10 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
       const width = Math.ceil(bounds.maxX - bounds.minX);
       const height = Math.ceil(bounds.maxY - bounds.minY);
       const tempCanvas = new fabric.Canvas(null, { width, height, backgroundColor: '#fff' });
-      const serialized = selectedObjects.map(obj => obj.toObject());
+      // Deep clone frame objects
+      const serialized = frameObjects.map(obj => obj.toObject());
       await new Promise<void>((resolve, reject) => {
-        fabric.util.enlivenObjects(serialized, (clones: any[]) => {
+        (fabric.util.enlivenObjects as any)(serialized, (clones: any[]) => {
           if (!clones || clones.length === 0) {
             reject(new Error('No objects could be enlivened'));
             return;
@@ -118,14 +134,14 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
       return;
     }
     if (!base64Image) {
-      alert('Failed to rasterize any selected objects for AI generation.');
+      alert('Failed to rasterize any objects inside the frame for AI generation.');
       setAiStatus('idle');
       return;
     }
     console.log('[Sketch AI] Rasterization complete, base64Image length:', base64Image.length);
     // Prepare input for OpenAI
     let annotationText: string = '';
-    selectedObjects.forEach(obj => {
+    frameObjects.forEach(obj => {
       if (obj.type === 'i-text' || obj.type === 'text') {
         annotationText += (obj as any).text + ' ';
       }
@@ -156,24 +172,9 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
         return;
       }
       const imageUrl = `data:image/png;base64,${base64}`;
-      let x = 100, y = 100;
-      if (selectedObjects.length > 0) {
-        // Place to the right of the rightmost selected object
-        const bounds = selectedObjects.reduce((acc, obj) => {
-          const left = obj.left ?? 0;
-          const top = obj.top ?? 0;
-          const width = obj.width ? obj.width * (obj.scaleX ?? 1) : 0;
-          const height = obj.height ? obj.height * (obj.scaleY ?? 1) : 0;
-          return {
-            minX: Math.min(acc.minX, left),
-            minY: Math.min(acc.minY, top),
-            maxX: Math.max(acc.maxX, left + width),
-            maxY: Math.max(acc.maxY, top + height)
-          };
-        }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
-        x = bounds.maxX + 40; // 40px gap
-        y = bounds.minY;
-      }
+      // Place to the right of the frame
+      let x = (frame.left ?? 0) + (frame.width ?? 0) + 40;
+      let y = frame.top ?? 0;
       const finalImgObj = await FabricImage.fromURL(imageUrl);
       finalImgObj.set({
         left: x,
