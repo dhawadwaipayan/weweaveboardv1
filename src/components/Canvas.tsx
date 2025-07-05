@@ -26,7 +26,7 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
     const canvas = new FabricCanvas(canvasRef.current, {
       width: window.innerWidth,
       height: window.innerHeight,
-      backgroundColor: 'rgba(33, 33, 33, 1)',
+      backgroundColor: 'transparent',
     });
 
     // Initialize the freeDrawingBrush
@@ -102,12 +102,12 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
       top: startY,
       width: 0,
       height: 0,
-      fill: 'transparent',
-      stroke: '#E1FF00',
-      strokeWidth: 2,
-      strokeDashArray: [10, 5],
+      fill: '#1A1A1A',
+      stroke: '',
+      strokeWidth: 0,
       selectable: true,
       evented: true,
+      name: 'frame',
     });
 
     fabricCanvas.add(frame);
@@ -139,7 +139,7 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
       fabricCanvas.off('mouse:move', onMouseMove);
       fabricCanvas.off('mouse:up', onMouseUp);
       
-      // Add frame to frames state
+      // Add frame to frames state and implement container logic
       const newFrame: Frame = {
         id: Date.now().toString(),
         x: frame.left || 0,
@@ -150,6 +150,35 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
       
       if (newFrame.width > 10 && newFrame.height > 10) {
         setFrames(prev => [...prev, newFrame]);
+        
+        // Group objects inside the frame
+        const frameRect = frame.getBoundingRect();
+        const objectsInFrame: any[] = [];
+        
+        fabricCanvas.getObjects().forEach((obj: any) => {
+          if (obj !== frame && obj.name !== 'frame') {
+            const objRect = obj.getBoundingRect();
+            // Check if object is inside frame
+            if (objRect.left >= frameRect.left && 
+                objRect.top >= frameRect.top &&
+                objRect.left + objRect.width <= frameRect.left + frameRect.width &&
+                objRect.top + objRect.height <= frameRect.top + frameRect.height) {
+              objectsInFrame.push(obj);
+            }
+          }
+        });
+        
+        // Create a group with frame and contained objects
+        if (objectsInFrame.length > 0) {
+          const allObjects = [frame, ...objectsInFrame];
+          fabricCanvas.remove(...allObjects);
+          
+          // Re-add them in the correct order (frame first, then objects)
+          fabricCanvas.add(frame, ...objectsInFrame);
+          
+          // Store frame children reference
+          (frame as any).frameChildren = objectsInFrame;
+        }
       } else {
         fabricCanvas.remove(frame);
       }
@@ -158,6 +187,48 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
     fabricCanvas.on('mouse:move', onMouseMove);
     fabricCanvas.on('mouse:up', onMouseUp);
   }, [selectedTool, fabricCanvas]);
+
+  // Handle frame movement with children
+  useEffect(() => {
+    if (!fabricCanvas) return;
+
+    const handleObjectMoving = (e: any) => {
+      const obj = e.target;
+      if (obj.name === 'frame' && (obj as any).frameChildren) {
+        const deltaX = obj.left - (obj as any).lastLeft || 0;
+        const deltaY = obj.top - (obj as any).lastTop || 0;
+        
+        (obj as any).frameChildren.forEach((child: any) => {
+          child.set({
+            left: child.left + deltaX,
+            top: child.top + deltaY
+          });
+        });
+        
+        (obj as any).lastLeft = obj.left;
+        (obj as any).lastTop = obj.top;
+        fabricCanvas.renderAll();
+      }
+    };
+
+    const handleObjectSelected = (e: any) => {
+      const obj = e.target;
+      if (obj.name === 'frame') {
+        (obj as any).lastLeft = obj.left;
+        (obj as any).lastTop = obj.top;
+      }
+    };
+
+    fabricCanvas.on('object:moving', handleObjectMoving);
+    fabricCanvas.on('selection:created', handleObjectSelected);
+    fabricCanvas.on('selection:updated', handleObjectSelected);
+
+    return () => {
+      fabricCanvas.off('object:moving', handleObjectMoving);
+      fabricCanvas.off('selection:created', handleObjectSelected);
+      fabricCanvas.off('selection:updated', handleObjectSelected);
+    };
+  }, [fabricCanvas]);
 
   // Add canvas event listeners
   useEffect(() => {
