@@ -44,11 +44,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button 
             key={tool.id} 
             onClick={() => handleToolSelect(tool.id)} 
-            className="group flex items-center justify-center w-[45px] h-[45px] rounded-lg hover:bg-[#2a2a2a] transition-colors duration-75" 
+            className="group flex items-center justify-center w-[24px] h-[24px] rounded-lg hover:bg-[#2a2a2a] transition-colors duration-75" 
             title={tool.label}
           >
             <IconComponent 
-              size={30} 
+              size={16} 
               color={iconColor}
               className="group-hover:text-white transition-colors duration-75"
               style={{ color: isActive ? '#E1FF00' : undefined }}
