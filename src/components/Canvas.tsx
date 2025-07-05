@@ -1,331 +1,201 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { ImageEditor } from './ImageEditor';
+import { Canvas as FabricCanvas, Circle, Rect } from 'fabric';
 
 interface CanvasProps {
   className?: string;
-  canvasMode?: boolean;
-  brushMode?: boolean;
-  onImageImport?: (file: File) => void;
+  selectedTool?: string;
 }
 
-interface DrawnPath {
-  points: { x: number; y: number }[];
-  color: string;
-  width: number;
-}
-
-interface ImageObject {
+interface Frame {
   id: string;
-  src: string;
   x: number;
   y: number;
   width: number;
   height: number;
-  rotation: number;
 }
 
-interface Handle {
-  id: string;
-  x: number;
-  y: number;
-  type: 'corner' | 'side' | 'rotate';
-  position: 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'e' | 'w' | 'rotate';
-}
+export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '' }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
+  const [frames, setFrames] = useState<Frame[]>([]);
 
-export const Canvas: React.FC<CanvasProps> = ({ className = '', canvasMode = true, brushMode = false, onImageImport }) => {
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [lastTransform, setLastTransform] = useState({ x: 0, y: 0 });
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [currentPath, setCurrentPath] = useState<{ x: number; y: number }[]>([]);
-  const [drawnPaths, setDrawnPaths] = useState<DrawnPath[]>([]);
-  const [images, setImages] = useState<ImageObject[]>([]);
-  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
+  // Initialize Fabric.js canvas
+  useEffect(() => {
+    if (!canvasRef.current) return;
 
-  // Convert screen coordinates to canvas coordinates
-  const screenToCanvas = useCallback((screenX: number, screenY: number) => {
-    return {
-      x: (screenX - transform.x) / transform.scale,
-      y: (screenY - transform.y) / transform.scale
-    };
-  }, [transform]);
-
-  // Image selection and manipulation handlers
-  const handleImageSelect = useCallback((imageId: string) => {
-    setSelectedImageId(imageId);
-  }, []);
-
-  const handleImageUpdate = useCallback((updatedImage: ImageObject) => {
-    setImages(prev => prev.map(img => 
-      img.id === updatedImage.id ? updatedImage : img
-    ));
-  }, []);
-
-  const handleCanvasClick = useCallback((e: React.MouseEvent) => {
-    // Only deselect if clicking on canvas background
-    if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('canvas-background')) {
-      setSelectedImageId(null);
-    }
-  }, []);
-
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // Don't interfere with image interactions
-    if (selectedImageId && (e.target as HTMLElement).closest('.image-editor')) {
-      return;
-    }
-
-    if (brushMode) {
-      setIsDrawing(true);
-      const canvasPoint = screenToCanvas(e.clientX, e.clientY);
-      setCurrentPath([canvasPoint]);
-      return;
-    }
-    
-    if (!canvasMode) return;
-    setIsDragging(true);
-    setDragStart({ x: e.clientX, y: e.clientY });
-    setLastTransform({ x: transform.x, y: transform.y });
-  }, [transform.x, transform.y, canvasMode, brushMode, screenToCanvas, selectedImageId]);
-
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (brushMode && isDrawing) {
-      const canvasPoint = screenToCanvas(e.clientX, e.clientY);
-      setCurrentPath(prev => [...prev, canvasPoint]);
-      return;
-    }
-
-    if (!isDragging || !canvasMode) return;
-
-    const deltaX = e.clientX - dragStart.x;
-    const deltaY = e.clientY - dragStart.y;
-
-    setTransform(prev => ({
-      ...prev,
-      x: lastTransform.x + deltaX,
-      y: lastTransform.y + deltaY
-    }));
-  }, [isDragging, dragStart, lastTransform, canvasMode, brushMode, isDrawing, screenToCanvas]);
-
-  const handleMouseUp = useCallback(() => {
-    if (isDrawing && currentPath.length > 1) {
-      setDrawnPaths(prev => [...prev, {
-        points: currentPath,
-        color: '#ffffff',
-        width: 2
-      }]);
-      setCurrentPath([]);
-    }
-    setIsDragging(false);
-    setIsDrawing(false);
-  }, [isDrawing, currentPath]);
-
-  const handleWheel = useCallback((e: WheelEvent) => {
-    if (!canvasMode) return;
-    e.preventDefault();
-    
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    const newScale = Math.max(0.1, Math.min(5, transform.scale * delta));
-    
-    setTransform(prev => ({
-      ...prev,
-      scale: newScale
-    }));
-  }, [transform.scale, canvasMode]);
-
-  // Redraw canvas content
-  const redrawCanvas = useCallback(() => {
-    const canvas = drawingCanvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw all completed paths
-    drawnPaths.forEach(path => {
-      if (path.points.length < 2) return;
-      
-      ctx.beginPath();
-      ctx.strokeStyle = path.color;
-      ctx.lineWidth = path.width;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-
-      const firstPoint = path.points[0];
-      ctx.moveTo(
-        firstPoint.x * transform.scale + transform.x,
-        firstPoint.y * transform.scale + transform.y
-      );
-
-      path.points.slice(1).forEach(point => {
-        ctx.lineTo(
-          point.x * transform.scale + transform.x,
-          point.y * transform.scale + transform.y
-        );
-      });
-
-      ctx.stroke();
+    const canvas = new FabricCanvas(canvasRef.current, {
+      width: window.innerWidth,
+      height: window.innerHeight,
+      backgroundColor: 'rgba(33, 33, 33, 1)',
     });
 
-    // Draw current path being drawn
-    if (currentPath.length > 1) {
-      ctx.beginPath();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
+    // Initialize the freeDrawingBrush
+    canvas.freeDrawingBrush.color = '#E1FF00';
+    canvas.freeDrawingBrush.width = 3;
 
-      const firstPoint = currentPath[0];
-      ctx.moveTo(
-        firstPoint.x * transform.scale + transform.x,
-        firstPoint.y * transform.scale + transform.y
-      );
+    setFabricCanvas(canvas);
 
-      currentPath.slice(1).forEach(point => {
-        ctx.lineTo(
-          point.x * transform.scale + transform.x,
-          point.y * transform.scale + transform.y
-        );
+    // Handle window resize
+    const handleResize = () => {
+      canvas.setDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight
       });
+      canvas.renderAll();
+    };
 
-      ctx.stroke();
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      canvas.dispose();
+    };
+  }, []);
+
+  // Handle tool changes
+  useEffect(() => {
+    if (!fabricCanvas) return;
+
+    // Reset all modes
+    fabricCanvas.isDrawingMode = false;
+    fabricCanvas.selection = true;
+    fabricCanvas.hoverCursor = 'move';
+    fabricCanvas.moveCursor = 'move';
+
+    switch (selectedTool) {
+      case 'draw':
+        fabricCanvas.isDrawingMode = true;
+        fabricCanvas.hoverCursor = 'crosshair';
+        fabricCanvas.moveCursor = 'crosshair';
+        if (fabricCanvas.freeDrawingBrush) {
+          fabricCanvas.freeDrawingBrush.color = '#E1FF00';
+          fabricCanvas.freeDrawingBrush.width = 3;
+        }
+        break;
+      case 'move':
+        fabricCanvas.selection = true;
+        fabricCanvas.hoverCursor = 'move';
+        fabricCanvas.moveCursor = 'move';
+        break;
+      case 'frame':
+        fabricCanvas.hoverCursor = 'crosshair';
+        fabricCanvas.moveCursor = 'crosshair';
+        break;
+      default:
+        break;
     }
-  }, [drawnPaths, currentPath, transform]);
+  }, [selectedTool, fabricCanvas]);
 
-  // Handle image import
-  const handleImageImport = useCallback((file: File) => {
-    console.log('Canvas: handleImageImport called with file:', file.name);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      if (e.target?.result) {
-        const img = new Image();
-        img.onload = () => {
-          console.log('Canvas: Image loaded, dimensions:', img.width, 'x', img.height);
-          const newImage: ImageObject = {
-            id: Date.now().toString(),
-            src: e.target!.result as string,
-            x: 100,
-            y: 100,
-            width: img.width,
-            height: img.height,
-            rotation: 0
-          };
-          console.log('Canvas: Adding new image to state:', newImage);
-          setImages(prev => [...prev, newImage]);
-        };
-        img.src = e.target.result as string;
+  // Handle frame creation
+  const handleCanvasMouseDown = useCallback((opt: any) => {
+    if (selectedTool !== 'frame' || !fabricCanvas) return;
+
+    const pointer = fabricCanvas.getPointer(opt.e);
+    const startX = pointer.x;
+    const startY = pointer.y;
+
+    // Create a temporary frame rectangle
+    const frame = new Rect({
+      left: startX,
+      top: startY,
+      width: 0,
+      height: 0,
+      fill: 'transparent',
+      stroke: '#E1FF00',
+      strokeWidth: 2,
+      strokeDashArray: [10, 5],
+      selectable: true,
+      evented: true,
+    });
+
+    fabricCanvas.add(frame);
+    fabricCanvas.setActiveObject(frame);
+
+    let isDrawing = true;
+
+    const onMouseMove = (opt: any) => {
+      if (!isDrawing) return;
+      const pointer = fabricCanvas.getPointer(opt.e);
+      
+      const width = Math.abs(pointer.x - startX);
+      const height = Math.abs(pointer.y - startY);
+      const left = Math.min(startX, pointer.x);
+      const top = Math.min(startY, pointer.y);
+
+      frame.set({
+        left: left,
+        top: top,
+        width: width,
+        height: height,
+      });
+      
+      fabricCanvas.renderAll();
+    };
+
+    const onMouseUp = () => {
+      isDrawing = false;
+      fabricCanvas.off('mouse:move', onMouseMove);
+      fabricCanvas.off('mouse:up', onMouseUp);
+      
+      // Add frame to frames state
+      const newFrame: Frame = {
+        id: Date.now().toString(),
+        x: frame.left || 0,
+        y: frame.top || 0,
+        width: frame.width || 0,
+        height: frame.height || 0,
+      };
+      
+      if (newFrame.width > 10 && newFrame.height > 10) {
+        setFrames(prev => [...prev, newFrame]);
+      } else {
+        fabricCanvas.remove(frame);
       }
     };
-    reader.readAsDataURL(file);
-  }, []);
 
-  // Expose image import function globally
+    fabricCanvas.on('mouse:move', onMouseMove);
+    fabricCanvas.on('mouse:up', onMouseUp);
+  }, [selectedTool, fabricCanvas]);
+
+  // Add canvas event listeners
   useEffect(() => {
-    console.log('Canvas: Setting up global image import handler');
-    (window as any).handleCanvasImageImport = handleImageImport;
-    
-    return () => {
-      delete (window as any).handleCanvasImageImport;
-    };
-  }, [handleImageImport]);
+    if (!fabricCanvas) return;
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    canvas.addEventListener('wheel', handleWheel, { passive: false });
+    fabricCanvas.on('mouse:down', handleCanvasMouseDown);
 
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      canvas.removeEventListener('wheel', handleWheel);
+      fabricCanvas.off('mouse:down', handleCanvasMouseDown);
     };
-  }, [handleMouseMove, handleMouseUp, handleWheel]);
-
-  useEffect(() => {
-    const canvas = drawingCanvasRef.current;
-    if (canvas) {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
-  }, []);
-
-  // Redraw when transform or paths change
-  useEffect(() => {
-    redrawCanvas();
-  }, [redrawCanvas]);
-
-  const getCursorClass = () => {
-    if (brushMode) return 'cursor-crosshair';
-    if (canvasMode) return isDragging ? 'cursor-grabbing' : 'cursor-grab';
-    return 'cursor-default';
-  };
+  }, [fabricCanvas, handleCanvasMouseDown]);
 
   return (
-    <div
-      ref={canvasRef}
-      className={`fixed inset-0 z-0 overflow-hidden ${getCursorClass()} ${className}`}
-      onMouseDown={handleMouseDown}
-      onClick={handleCanvasClick}
-      style={{ userSelect: 'none' }}
-    >
-      {/* Infinite grid background with 10% visibility */}
-      <div
+    <div className={`fixed inset-0 z-0 overflow-hidden ${className}`}>
+      {/* Grid background */}
+      <div 
         className="absolute inset-0"
         style={{
-          transform: `translate(${transform.x % (20 * transform.scale)}px, ${transform.y % (20 * transform.scale)}px)`,
-          width: '100vw',
-          height: '100vh',
           backgroundImage: `
-            linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px)
+            linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px)
           `,
-          backgroundSize: `${20 * transform.scale}px ${20 * transform.scale}px`,
+          backgroundSize: `20px 20px`,
           backgroundColor: 'rgba(33, 33, 33, 1)',
-          pointerEvents: 'none',
         }}
       />
-
-      {/* Images with Selection and Manipulation */}
-      {images.map(img => (
-        <ImageEditor
-          key={img.id}
-          image={img}
-          isSelected={selectedImageId === img.id}
-          transform={transform}
-          onSelect={handleImageSelect}
-          onUpdate={handleImageUpdate}
-          onDeselect={() => setSelectedImageId(null)}
-        />
-      ))}
       
-      {/* Drawing canvas for brush tool */}
       <canvas
-        ref={drawingCanvasRef}
-        className="absolute inset-0 z-5"
-        style={{ 
-          pointerEvents: brushMode ? 'auto' : 'none',
-        }}
+        ref={canvasRef}
+        className="absolute inset-0"
       />
       
-      
-      {/* Mode indicators */}
-      {!canvasMode && (
-        <div className="absolute bottom-4 left-4 z-20 bg-[rgba(255,69,0,0.9)] text-white text-xs px-3 py-2 rounded-md pointer-events-none border border-[rgba(255,255,255,0.1)]">
-          Canvas movement disabled
-        </div>
-      )}
-      
-      {brushMode && (
-        <div className="absolute bottom-4 right-4 z-20 bg-[rgba(0,255,0,0.9)] text-white text-xs px-3 py-2 rounded-md pointer-events-none border border-[rgba(255,255,255,0.1)]">
-          Brush mode active
+      {/* Tool indicator */}
+      {selectedTool && (
+        <div className="absolute bottom-4 right-4 z-20 bg-[rgba(0,0,0,0.8)] text-[#E1FF00] text-xs px-3 py-2 rounded-md pointer-events-none border border-[rgba(255,255,255,0.1)]">
+          {selectedTool === 'draw' && 'Drawing mode active'}
+          {selectedTool === 'frame' && 'Frame creation mode'}
+          {selectedTool === 'move' && 'Move/Select mode'}
+          {selectedTool === 'shape' && 'Shape mode'}
+          {selectedTool === 'text' && 'Text mode'}
         </div>
       )}
     </div>

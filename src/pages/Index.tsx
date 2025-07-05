@@ -7,14 +7,17 @@ import { Canvas } from '@/components/Canvas';
 import { TopBar } from '@/components/TopBar';
 
 const Index = () => {
+  const [selectedTool, setSelectedTool] = useState('');
+  
   const handleToolSelect = (toolId: string) => {
+    setSelectedTool(toolId);
     console.log(`Tool selected: ${toolId}`);
   };
 
   return (
     <main className="bg-[rgba(33,33,33,1)] flex flex-col overflow-hidden min-h-screen relative">
       {/* Canvas Background - behind everything */}
-      <Canvas />
+      <Canvas selectedTool={selectedTool} />
       
       {/* Sidebar - positioned center left */}
       <Sidebar onToolSelect={handleToolSelect} />
