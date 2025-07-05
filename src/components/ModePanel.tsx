@@ -144,8 +144,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
         height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
       });
       // UNLOCK BOARD: Restore all object interaction and selection
+      // Note: Object selectability will be managed by useObjectStateManager based on current tool
       fabricCanvas.forEachObject(obj => {
-        obj.selectable = true;
         obj.evented = true;
       });
       fabricCanvas.selection = true;
