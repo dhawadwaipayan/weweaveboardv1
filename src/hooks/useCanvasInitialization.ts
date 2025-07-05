@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+
 import { Canvas as FabricCanvas, Pattern, PencilBrush } from 'fabric';
 
 export const useCanvasInitialization = (canvasRef: React.RefObject<HTMLCanvasElement>) => {
