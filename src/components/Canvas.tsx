@@ -31,8 +31,10 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
     });
 
     // Initialize the freeDrawingBrush properly
-    canvas.freeDrawingBrush.color = '#E1FF00';
-    canvas.freeDrawingBrush.width = 3;
+    if (canvas.freeDrawingBrush) {
+      canvas.freeDrawingBrush.color = '#E1FF00';
+      canvas.freeDrawingBrush.width = 3;
+    }
 
     setFabricCanvas(canvas);
 
@@ -77,8 +79,10 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
         fabricCanvas.hoverCursor = 'crosshair';
         fabricCanvas.moveCursor = 'crosshair';
         // Ensure brush is properly configured
-        fabricCanvas.freeDrawingBrush.color = '#E1FF00';
-        fabricCanvas.freeDrawingBrush.width = 3;
+        if (fabricCanvas.freeDrawingBrush) {
+          fabricCanvas.freeDrawingBrush.color = '#E1FF00';
+          fabricCanvas.freeDrawingBrush.width = 3;
+        }
         break;
       case 'move':
         console.log('Activating move mode');
