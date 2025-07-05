@@ -1,6 +1,11 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Image as FabricImage } from 'fabric';
-import { useCanvasTool } from '@/hooks/useCanvasTool';
+import { useCanvasInitialization } from '@/hooks/useCanvasInitialization';
+import { useSimpleToolSwitching } from '@/hooks/useSimpleToolSwitching';
+import { useObjectStateManager } from '@/hooks/useObjectStateManager';
+import { useTextTool } from '@/hooks/useTextTool';
+import { useHandTool } from '@/hooks/useHandTool';
+import { useDeleteHandler } from '@/hooks/useDeleteHandler';
 import { CanvasToolIndicator } from './CanvasToolIndicator';
 
 interface CanvasProps {
@@ -10,9 +15,51 @@ interface CanvasProps {
 
 export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = 'select' }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isPanning, setIsPanning] = useState(false);
+  const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 });
 
-  // Use consolidated tool hook
-  const fabricCanvas = useCanvasTool(canvasRef, selectedTool);
+  // Initialize Fabric.js canvas
+  const fabricCanvas = useCanvasInitialization(canvasRef);
+
+  // New simplified architecture
+  useSimpleToolSwitching(fabricCanvas, selectedTool);
+  useObjectStateManager(fabricCanvas, selectedTool);
+  
+  // Tool-specific handlers
+  useTextTool(fabricCanvas, selectedTool);
+  
+  useHandTool({
+    fabricCanvas,
+    selectedTool,
+    isPanning,
+    setIsPanning,
+    lastPanPoint,
+    setLastPanPoint
+  });
+  
+  useDeleteHandler(fabricCanvas, selectedTool);
+
+  // Make drawn paths selectable when created
+  useEffect(() => {
+    if (!fabricCanvas) return;
+
+    const handlePathCreated = (e: any) => {
+      const path = e.path;
+      if (path) {
+        path.set({
+          selectable: true,
+          evented: true,
+        });
+        console.log('Path created and made selectable:', path);
+      }
+    };
+
+    fabricCanvas.on('path:created', handlePathCreated);
+
+    return () => {
+      fabricCanvas.off('path:created', handlePathCreated);
+    };
+  }, [fabricCanvas]);
 
   // Register global image import handler for TopBar
   useEffect(() => {
