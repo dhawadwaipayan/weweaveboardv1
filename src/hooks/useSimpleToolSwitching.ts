@@ -54,15 +54,21 @@ export const useSimpleToolSwitching = (
         fabricCanvas.skipTargetFind = false;
         fabricCanvas.hoverCursor = 'move';
         fabricCanvas.moveCursor = 'move';
+        console.log('Select mode enabled');
         break;
         
       case 'hand':
         fabricCanvas.isDrawingMode = false;
-        fabricCanvas.selection = false;
+        fabricCanvas.selection = true; // Allow selection in hand mode
         fabricCanvas.skipTargetFind = false;
         fabricCanvas.hoverCursor = 'grab';
         fabricCanvas.moveCursor = 'grab';
         fabricCanvas.defaultCursor = 'grab';
+        console.log('Hand mode enabled:', {
+          selection: fabricCanvas.selection,
+          hoverCursor: fabricCanvas.hoverCursor,
+          moveCursor: fabricCanvas.moveCursor
+        });
         break;
         
       case 'frame':

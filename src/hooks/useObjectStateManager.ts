@@ -19,8 +19,11 @@ export const useObjectStateManager = (
       if (selectedTool === 'select') {
         // In select mode, all objects should be selectable
         obj.selectable = true;
+      } else if (selectedTool === 'hand') {
+        // In hand mode, allow object selection but disable during panning
+        obj.selectable = true;
       } else {
-        // For other tools (frame, text, hand), disable selection temporarily
+        // For other tools (frame, text), disable selection temporarily
         // But preserve frame objects that were just created
         if (!(obj as any).isFrameObject || selectedTool !== 'frame') {
           obj.selectable = false;
