@@ -27,12 +27,12 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
     const canvas = new FabricCanvas(canvasRef.current, {
       width: window.innerWidth,
       height: window.innerHeight,
-      backgroundColor: 'transparent',
+      backgroundColor: '#1E1E1E',
     });
 
     // Initialize the freeDrawingBrush properly
     if (canvas.freeDrawingBrush) {
-      canvas.freeDrawingBrush.color = '#E1FF00';
+      canvas.freeDrawingBrush.color = '#FF0000';
       canvas.freeDrawingBrush.width = 3;
     }
 
@@ -80,7 +80,7 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
         fabricCanvas.moveCursor = 'crosshair';
         // Ensure brush is properly configured
         if (fabricCanvas.freeDrawingBrush) {
-          fabricCanvas.freeDrawingBrush.color = '#E1FF00';
+          fabricCanvas.freeDrawingBrush.color = '#FF0000';
           fabricCanvas.freeDrawingBrush.width = 3;
         }
         break;
@@ -209,6 +209,31 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
     };
   }, [fabricCanvas]);
 
+  // Add delete key functionality
+  useEffect(() => {
+    if (!fabricCanvas) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const activeObjects = fabricCanvas.getActiveObjects();
+        if (activeObjects.length > 0) {
+          activeObjects.forEach(obj => {
+            fabricCanvas.remove(obj);
+          });
+          fabricCanvas.discardActiveObject();
+          fabricCanvas.renderAll();
+          console.log('Deleted selected objects');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [fabricCanvas]);
+
   // Main mouse event handler
   useEffect(() => {
     if (!fabricCanvas) return;
@@ -228,19 +253,6 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
 
   return (
     <div className={`fixed inset-0 z-0 overflow-hidden ${className}`}>
-      {/* Grid background */}
-      <div 
-        className="absolute inset-0"
-        style={{
-          backgroundImage: `
-            linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px)
-          `,
-          backgroundSize: `20px 20px`,
-          backgroundColor: 'rgba(33, 33, 33, 1)',
-        }}
-      />
-      
       <canvas
         ref={canvasRef}
         className="absolute inset-0"
