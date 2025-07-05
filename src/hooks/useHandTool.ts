@@ -24,9 +24,9 @@ export const useHandTool = ({
   useEffect(() => {
     if (!fabricCanvas) return;
     
-    // COMPLETE GUARD: Skip during drawing mode - let Fabric.js handle all events
+    // ABSOLUTE GUARD: Never interfere with drawing mode
     if (selectedTool === 'draw') {
-      console.log('HandTool: Completely frozen during drawing mode - no event listeners');
+      console.log('HandTool: COMPLETELY DISABLED during drawing mode');
       return;
     }
     

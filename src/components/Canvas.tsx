@@ -23,12 +23,13 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
   // Initialize Fabric.js canvas
   const fabricCanvas = useCanvasInitialization(canvasRef);
 
-  // New simplified architecture
+  // CRITICAL: Tool switching MUST happen first and completely
   useSimpleToolSwitching(fabricCanvas, selectedTool);
-  useObjectStateManager(fabricCanvas, selectedTool);
   
-  // Tool-specific handlers
-  useTextTool(fabricCanvas, selectedTool);
+  // Only use other hooks when NOT in drawing mode
+  useObjectStateManager(fabricCanvas, selectedTool === 'draw' ? '' : selectedTool);
+  useTextTool(fabricCanvas, selectedTool === 'draw' ? '' : selectedTool);
+  useDeleteHandler(fabricCanvas, selectedTool === 'draw' ? '' : selectedTool);
   
   useHandTool({
     fabricCanvas,
@@ -38,8 +39,6 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
     lastPanPoint: lastPanPointRef.current,
     setLastPanPoint: (point: { x: number; y: number }) => { lastPanPointRef.current = point; }
   });
-  
-  useDeleteHandler(fabricCanvas, selectedTool);
 
   // Make drawn paths selectable when created
   useEffect(() => {
