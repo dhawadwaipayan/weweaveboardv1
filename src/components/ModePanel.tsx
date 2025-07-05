@@ -69,11 +69,11 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
     const selectedObjects = fabricCanvas.getActiveObjects();
     // Debug: log selected objects and their types and constructors
     console.log('Selected objects for rasterization:', selectedObjects.map(obj => ({ type: obj.type, constructor: obj.constructor?.name, obj })));
-    // Export only the intersection of the selection bounding box and the visible canvas area
+    // Use temp canvas method for robust rasterization
     let base64Image = null;
     try {
-      console.log('[Sketch AI] Starting visible bounding box rasterization...');
-      // 1. Get selection bounding box
+      if (selectedObjects.length === 0) throw new Error('No objects selected.');
+      // 1. Compute selection bounding box
       const bounds = selectedObjects.reduce((acc, obj) => {
         const left = obj.left ?? 0;
         const top = obj.top ?? 0;
@@ -86,34 +86,39 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
           maxY: Math.max(acc.maxY, top + height)
         };
       }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
-      // 2. Get visible area in canvas coordinates
-      const vpt = fabricCanvas.viewportTransform;
-      const scale = vpt[0];
-      const panX = vpt[4];
-      const panY = vpt[5];
-      const visibleLeft = -panX / scale;
-      const visibleTop = -panY / scale;
-      const visibleWidth = fabricCanvas.getWidth() / scale;
-      const visibleHeight = fabricCanvas.getHeight() / scale;
-      // 3. Calculate intersection (crop area)
-      const cropLeft = Math.max(bounds.minX, visibleLeft);
-      const cropTop = Math.max(bounds.minY, visibleTop);
-      const cropRight = Math.min(bounds.maxX, visibleLeft + visibleWidth);
-      const cropBottom = Math.min(bounds.maxY, visibleTop + visibleHeight);
-      const cropWidth = cropRight - cropLeft;
-      const cropHeight = cropBottom - cropTop;
-      if (cropWidth <= 0 || cropHeight <= 0) {
-        throw new Error('Selection is not visible in the current viewport.');
+      const cropWidth = bounds.maxX - bounds.minX;
+      const cropHeight = bounds.maxY - bounds.minY;
+      if (cropWidth <= 0 || cropHeight <= 0) throw new Error('Invalid selection bounding box.');
+      // 2. Deep clone and offset objects
+      const clones: any[] = [];
+      for (const obj of selectedObjects) {
+        try {
+          const clone = await new Promise<any>((resolve, reject) => {
+            (obj as any).clone((cloned: any) => {
+              if (!cloned) reject(new Error('Clone failed'));
+              else resolve(cloned);
+            });
+          });
+          // Offset so that the selection bounding box aligns with (0,0)
+          clone.left = (obj.left ?? 0) - bounds.minX;
+          clone.top = (obj.top ?? 0) - bounds.minY;
+          clones.push(clone);
+        } catch (e) {
+          console.warn('Failed to clone object for rasterization:', obj, e);
+        }
       }
-      // 4. Export the cropped area as PNG
-      base64Image = fabricCanvas.toDataURL({
-        format: 'png',
-        left: cropLeft,
-        top: cropTop,
+      if (clones.length === 0) throw new Error('No objects could be cloned for rasterization.');
+      // 3. Create temp canvas and add clones
+      // @ts-ignore
+      const tempCanvas = new fabric.StaticCanvas(null, {
         width: cropWidth,
         height: cropHeight,
-        multiplier: 1
+        backgroundColor: fabricCanvas.backgroundColor || '#fff',
       });
+      clones.forEach(clone => tempCanvas.add(clone));
+      tempCanvas.renderAll();
+      // 4. Export as PNG
+      base64Image = tempCanvas.toDataURL({ format: 'png', multiplier: 1 });
       setLastInputImage(base64Image);
       // Auto-download the image
       const link = document.createElement('a');
@@ -122,7 +127,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      console.log('[Sketch AI] Cropped base64Image length:', base64Image?.length);
+      console.log('[Sketch AI] Temp canvas base64Image length:', base64Image?.length);
     } catch (e) {
       setAiStatus('idle');
       alert('[Sketch AI] Rasterization failed: ' + (e instanceof Error ? e.message : String(e)));
