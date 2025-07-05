@@ -4,6 +4,7 @@ import { RenderSubBar } from './RenderSubBar';
 import type { CanvasHandle } from './Canvas';
 import { callOpenAIGptImage } from '@/lib/openaiSketch';
 import { Image as FabricImage } from 'fabric';
+import * as fabric from 'fabric';
 
 interface ModePanelProps {
   canvasRef: React.RefObject<CanvasHandle>;
@@ -68,8 +69,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
     // Debug: log selected objects and their types and constructors
     console.log('Selected objects for rasterization:', selectedObjects.map(obj => ({ type: obj.type, constructor: obj.constructor?.name, obj })));
     // Rasterize selected objects to PNG
-    // 1. Clone or copy selected objects
-    const fabricNS = (window as any).fabric;
+    // 1. Clone selected objects if possible
     const clones: any[] = [];
     for (const obj of selectedObjects) {
       if (typeof (obj as any).clone === 'function') {
@@ -80,23 +80,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
         } catch (e) {
           console.warn('Failed to clone object:', obj, e);
         }
-      } else if (typeof (obj as any).toObject === 'function' && fabricNS && fabricNS.util && fabricNS.util.object && typeof fabricNS.util.object.cloneDeep === 'function') {
-        try {
-          // Deep copy the object and re-create it
-          const objData = (obj as any).toObject();
-          const klass = fabricNS.util.getKlass(obj.type, fabricNS);
-          if (klass && typeof klass.fromObject === 'function') {
-            // eslint-disable-next-line no-await-in-loop
-            const copy = await new Promise<any>(resolve => klass.fromObject(objData, resolve));
-            clones.push(copy);
-          } else {
-            console.warn('No klass.fromObject for type:', obj.type);
-          }
-        } catch (e) {
-          console.warn('Failed to copy object via toObject:', obj, e);
-        }
       } else {
-        console.warn('Object is not cloneable or copyable:', obj);
+        console.warn('Object is not cloneable:', obj);
       }
     }
     let base64Image = null;
@@ -117,14 +102,14 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
       const width = Math.ceil(bounds.maxX - bounds.minX);
       const height = Math.ceil(bounds.maxY - bounds.minY);
       // 3. Create temp canvas
-      const tempCanvas = new fabricNS.Canvas(null, { width, height, backgroundColor: '#fff' });
+      const tempCanvas = new fabric.Canvas(null, { width, height, backgroundColor: '#fff' });
       clones.forEach((obj: any) => {
         obj.set({ left: (obj.left ?? 0) - bounds.minX, top: (obj.top ?? 0) - bounds.minY });
         tempCanvas.add(obj);
       });
       tempCanvas.renderAll();
       // 4. Export to base64 PNG
-      base64Image = tempCanvas.toDataURL({ format: 'png' });
+      base64Image = tempCanvas.toDataURL({ format: 'png', multiplier: 1 });
       tempCanvas.dispose();
     } else {
       // Fallback: try grouping the selected objects and rasterizing the group
@@ -143,16 +128,16 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
         }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
         const width = Math.ceil(bounds.maxX - bounds.minX);
         const height = Math.ceil(bounds.maxY - bounds.minY);
-        const tempCanvas = new fabricNS.Canvas(null, { width, height, backgroundColor: '#fff' });
+        const tempCanvas = new fabric.Canvas(null, { width, height, backgroundColor: '#fff' });
         // Group the selected objects
-        const group = new fabricNS.Group(selectedObjects.map((obj: any) => obj), {
+        const group = new fabric.Group(selectedObjects.map((obj: any) => obj), {
           left: 0,
           top: 0
         });
         group.set({ left: 0, top: 0 });
         tempCanvas.add(group);
         tempCanvas.renderAll();
-        base64Image = tempCanvas.toDataURL({ format: 'png' });
+        base64Image = tempCanvas.toDataURL({ format: 'png', multiplier: 1 });
         tempCanvas.dispose();
         console.log('Rasterized using group fallback.');
       } catch (e) {
