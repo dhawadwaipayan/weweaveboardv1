@@ -81,10 +81,27 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
       return;
     }
     // Rasterize selected objects to PNG
-    // 1. Clone selected objects
-    const clones = await Promise.all(selectedObjects.map(obj => new Promise<any>(resolve => (obj as any).clone(resolve))));
+    // 1. Clone selected objects (only those with .clone)
+    const cloneableObjects = selectedObjects.filter(obj => typeof (obj as any).clone === 'function');
+    if (cloneableObjects.length === 0) {
+      alert('No cloneable visual objects selected for AI generation.');
+      return;
+    }
+    const clones = await Promise.all(cloneableObjects.map(obj => new Promise<any>(resolve => {
+      try {
+        (obj as any).clone(resolve);
+      } catch (e) {
+        console.warn('Failed to clone object:', obj, e);
+        resolve(null);
+      }
+    })));
+    const validClones = clones.filter(Boolean);
+    if (validClones.length === 0) {
+      alert('Failed to rasterize any selected objects for AI generation.');
+      return;
+    }
     // 2. Calculate bounding box
-    const bounds = selectedObjects.reduce((acc, obj) => {
+    const bounds = cloneableObjects.reduce((acc, obj) => {
       const left = obj.left ?? 0;
       const top = obj.top ?? 0;
       const width = obj.width ? obj.width * (obj.scaleX ?? 1) : 0;
@@ -101,7 +118,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
     // 3. Create temp canvas
     const fabricNS = (window as any).fabric;
     const tempCanvas = new fabricNS.Canvas(null, { width, height, backgroundColor: '#fff' });
-    clones.forEach((obj: any) => {
+    validClones.forEach((obj: any) => {
       obj.set({ left: (obj.left ?? 0) - bounds.minX, top: (obj.top ?? 0) - bounds.minY });
       tempCanvas.add(obj);
     });
