@@ -72,7 +72,10 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
     // Use temp canvas method for robust rasterization
     let base64Image = null;
     try {
-      if (selectedObjects.length === 0) throw new Error('No objects selected.');
+      if (selectedObjects.length === 0) {
+        alert('[Sketch AI] No objects selected.');
+        throw new Error('No objects selected.');
+      }
       // 1. Compute selection bounding box
       const bounds = selectedObjects.reduce((acc, obj) => {
         const left = obj.left ?? 0;
@@ -88,17 +91,28 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
       }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
       const cropWidth = bounds.maxX - bounds.minX;
       const cropHeight = bounds.maxY - bounds.minY;
-      if (cropWidth <= 0 || cropHeight <= 0) throw new Error('Invalid selection bounding box.');
+      if (cropWidth <= 0 || cropHeight <= 0) {
+        alert('[Sketch AI] Invalid selection bounding box.');
+        throw new Error('Invalid selection bounding box.');
+      }
       // 2. Serialize all selected objects
+      console.log('[Sketch AI] Serializing selected objects:', selectedObjects);
       const serialized = selectedObjects.map(obj => obj.toObject());
       // 3. Revive objects using fabric.util.enlivenObjects
+      console.log('[Sketch AI] Calling enlivenObjects...');
       const revivedObjects = await new Promise<any[]>((resolve, reject) => {
         // @ts-ignore
         fabric.util.enlivenObjects(serialized, (enlivened: any[]) => {
-          if (!enlivened || enlivened.length === 0) reject(new Error('No objects could be revived for rasterization.'));
-          else resolve(enlivened);
+          console.log('[Sketch AI] enlivenObjects callback:', enlivened);
+          if (!enlivened || enlivened.length === 0) {
+            alert('[Sketch AI] No objects could be revived for rasterization.');
+            reject(new Error('No objects could be revived for rasterization.'));
+          } else {
+            resolve(enlivened);
+          }
         });
       });
+      console.log('[Sketch AI] Revived objects:', revivedObjects);
       // 4. Offset revived objects
       const offsetObjects = revivedObjects.map((obj, i) => {
         try {
@@ -106,12 +120,17 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
           obj.top = (selectedObjects[i].top ?? 0) - bounds.minY;
           return obj;
         } catch (e) {
-          console.warn('Failed to offset revived object:', obj, e);
+          console.warn('[Sketch AI] Failed to offset revived object:', obj, e);
+          alert('[Sketch AI] Failed to offset revived object.');
           return null;
         }
       }).filter(Boolean);
-      if (offsetObjects.length === 0) throw new Error('No objects could be revived and offset for rasterization.');
+      if (offsetObjects.length === 0) {
+        alert('[Sketch AI] No objects could be revived and offset for rasterization.');
+        throw new Error('No objects could be revived and offset for rasterization.');
+      }
       // 5. Create temp canvas and add objects
+      console.log('[Sketch AI] Creating temp canvas:', { cropWidth, cropHeight });
       // @ts-ignore
       const tempCanvas = new fabric.StaticCanvas(null, {
         width: cropWidth,
@@ -121,15 +140,22 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
       offsetObjects.forEach(obj => tempCanvas.add(obj));
       tempCanvas.renderAll();
       // 6. Export as PNG
+      console.log('[Sketch AI] Exporting temp canvas to PNG...');
       base64Image = tempCanvas.toDataURL({ format: 'png', multiplier: 1 });
       setLastInputImage(base64Image);
       // Auto-download the image
-      const link = document.createElement('a');
-      link.href = base64Image;
-      link.download = 'openai-input.png';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      if (base64Image) {
+        console.log('[Sketch AI] Downloading PNG, base64Image length:', base64Image.length);
+        const link = document.createElement('a');
+        link.href = base64Image;
+        link.download = 'openai-input.png';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        alert('[Sketch AI] PNG auto-download triggered.');
+      } else {
+        alert('[Sketch AI] PNG export failed: base64Image is empty.');
+      }
       console.log('[Sketch AI] Temp canvas base64Image length:', base64Image?.length);
     } catch (e) {
       setAiStatus('idle');
