@@ -10,46 +10,20 @@ export const useSimpleToolSwitching = (
 
     console.log('Simple tool switch to:', selectedTool);
 
-    // COMPLETE RESET OF ALL EVENT HANDLERS FIRST
-    fabricCanvas.off(); // Remove ALL existing event handlers
-    
-    // Reset canvas state completely
-    fabricCanvas.selection = false;
-    fabricCanvas.isDrawingMode = false;
-    
-    // Configure canvas properties based on tool
+    // Configure ONLY canvas-level properties, never remove event handlers
     switch (selectedTool) {
       case 'draw':
-        // Clean coordinate system reset
-        fabricCanvas.viewportTransform = [1, 0, 0, 1, 0, 0];
-        fabricCanvas.setZoom(1);
-        
-        // Enable drawing mode FIRST
         fabricCanvas.isDrawingMode = true;
         fabricCanvas.selection = false;
         fabricCanvas.hoverCursor = 'crosshair';
         fabricCanvas.moveCursor = 'crosshair';
         
-        // Simple background for drawing
-        fabricCanvas.backgroundColor = '#f8f8f8';
-        
-        // Configure brush IMMEDIATELY after drawing mode enabled
-        fabricCanvas.freeDrawingBrush.color = '#000000';
-        fabricCanvas.freeDrawingBrush.width = 3;
-        
-        // Add ONLY drawing event debugging
-        fabricCanvas.on('mouse:down', (e) => {
-          console.log('DRAWING mouse:down at:', e.pointer);
-          console.log('Drawing mode active:', fabricCanvas.isDrawingMode);
-          console.log('Brush exists:', !!fabricCanvas.freeDrawingBrush);
-        });
-        
-        fabricCanvas.on('path:created', (e) => {
-          console.log('Path created successfully:', e.path);
-          console.log('Path object:', e.path);
-        });
-        
-        console.log('DRAWING MODE FULLY CONFIGURED - brush ready');
+        // Configure brush with visible bright color
+        if (fabricCanvas.freeDrawingBrush) {
+          fabricCanvas.freeDrawingBrush.color = '#00FF00'; // Bright green for visibility
+          fabricCanvas.freeDrawingBrush.width = 5;
+        }
+        console.log('Drawing mode enabled, brush configured');
         break;
         
       case 'select':
@@ -57,8 +31,6 @@ export const useSimpleToolSwitching = (
         fabricCanvas.selection = true;
         fabricCanvas.hoverCursor = 'move';
         fabricCanvas.moveCursor = 'move';
-        fabricCanvas.backgroundColor = '#1E1E1E';
-        console.log('SELECT MODE - drawing disabled');
         break;
         
       case 'hand':
@@ -66,8 +38,6 @@ export const useSimpleToolSwitching = (
         fabricCanvas.selection = false;
         fabricCanvas.hoverCursor = 'grab';
         fabricCanvas.moveCursor = 'grab';
-        fabricCanvas.backgroundColor = '#1E1E1E';
-        console.log('HAND MODE - drawing disabled');
         break;
         
       case 'frame':
@@ -76,8 +46,6 @@ export const useSimpleToolSwitching = (
         fabricCanvas.selection = false;
         fabricCanvas.hoverCursor = 'crosshair';
         fabricCanvas.moveCursor = 'crosshair';
-        fabricCanvas.backgroundColor = '#1E1E1E';
-        console.log('FRAME/TEXT MODE - drawing disabled');
         break;
         
       default:
@@ -85,8 +53,6 @@ export const useSimpleToolSwitching = (
         fabricCanvas.selection = true;
         fabricCanvas.hoverCursor = 'move';
         fabricCanvas.moveCursor = 'move';
-        fabricCanvas.backgroundColor = '#1E1E1E';
-        console.log('DEFAULT MODE - drawing disabled');
         break;
     }
 

@@ -24,15 +24,13 @@ export const useHandTool = ({
   useEffect(() => {
     if (!fabricCanvas) return;
     
-    // ABSOLUTE GUARD: Never interfere with drawing mode
+    // FREEZE: Skip during drawing mode
     if (selectedTool === 'draw') {
-      console.log('HandTool: COMPLETELY DISABLED during drawing mode');
+      console.log('HandTool: Frozen during drawing mode');
       return;
     }
     
     if (selectedTool !== 'hand') return;
-    
-    console.log('HandTool: Activating hand tool event handlers');
 
     const handleMouseDown = (opt: any) => {
       const pointer = fabricCanvas.getPointer(opt.e);

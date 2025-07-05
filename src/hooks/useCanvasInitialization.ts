@@ -10,18 +10,46 @@ export const useCanvasInitialization = (canvasRef: React.RefObject<HTMLCanvasEle
     const canvas = new FabricCanvas(canvasRef.current, {
       width: window.innerWidth,
       height: window.innerHeight,
-      backgroundColor: '#f8f8f8', // Simple background by default
+      backgroundColor: '#1E1E1E',
     });
 
-    // Reset viewport and coordinates to clean state
-    canvas.viewportTransform = [1, 0, 0, 1, 0, 0];
-    canvas.setZoom(1);
+    // Create grid pattern using Fabric.js Pattern
+    const createGridPattern = () => {
+      const patternCanvas = document.createElement('canvas');
+      const patternCtx = patternCanvas.getContext('2d');
+      const gridSize = 20;
+      
+      patternCanvas.width = gridSize;
+      patternCanvas.height = gridSize;
+      
+      if (patternCtx) {
+        patternCtx.fillStyle = '#1E1E1E';
+        patternCtx.fillRect(0, 0, gridSize, gridSize);
+        patternCtx.strokeStyle = '#333333';
+        patternCtx.lineWidth = 0.5;
+        patternCtx.beginPath();
+        patternCtx.moveTo(0, gridSize);
+        patternCtx.lineTo(gridSize, gridSize);
+        patternCtx.lineTo(gridSize, 0);
+        patternCtx.stroke();
+      }
+      
+      return patternCanvas;
+    };
 
-    // Initialize brush immediately
-    canvas.freeDrawingBrush.color = '#000000';
-    canvas.freeDrawingBrush.width = 3;
-    
-    console.log('Canvas initialized with clean state');
+    // Set grid background using Fabric.js Pattern
+    const gridCanvas = createGridPattern();
+    const pattern = new Pattern({
+      source: gridCanvas,
+      repeat: 'repeat'
+    });
+    canvas.backgroundColor = pattern;
+
+    // Initialize the freeDrawingBrush properly
+    if (canvas.freeDrawingBrush) {
+      canvas.freeDrawingBrush.color = '#FF0000';
+      canvas.freeDrawingBrush.width = 3;
+    }
 
     setFabricCanvas(canvas);
 

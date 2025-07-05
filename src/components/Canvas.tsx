@@ -15,30 +15,29 @@ interface CanvasProps {
 
 export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = 'select' }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
-  // Use refs instead of state to prevent re-renders during drawing/panning
-  const isPanningRef = useRef(false);
-  const lastPanPointRef = useRef({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 });
 
   // Initialize Fabric.js canvas
   const fabricCanvas = useCanvasInitialization(canvasRef);
 
-  // CRITICAL: Tool switching MUST happen first and completely
+  // New simplified architecture
   useSimpleToolSwitching(fabricCanvas, selectedTool);
+  useObjectStateManager(fabricCanvas, selectedTool);
   
-  // Only use other hooks when NOT in drawing mode
-  useObjectStateManager(fabricCanvas, selectedTool === 'draw' ? '' : selectedTool);
-  useTextTool(fabricCanvas, selectedTool === 'draw' ? '' : selectedTool);
-  useDeleteHandler(fabricCanvas, selectedTool === 'draw' ? '' : selectedTool);
+  // Tool-specific handlers
+  useTextTool(fabricCanvas, selectedTool);
   
   useHandTool({
     fabricCanvas,
     selectedTool,
-    isPanning: isPanningRef.current,
-    setIsPanning: (value: boolean) => { isPanningRef.current = value; },
-    lastPanPoint: lastPanPointRef.current,
-    setLastPanPoint: (point: { x: number; y: number }) => { lastPanPointRef.current = point; }
+    isPanning,
+    setIsPanning,
+    lastPanPoint,
+    setLastPanPoint
   });
+  
+  useDeleteHandler(fabricCanvas, selectedTool);
 
   // Make drawn paths selectable when created
   useEffect(() => {
