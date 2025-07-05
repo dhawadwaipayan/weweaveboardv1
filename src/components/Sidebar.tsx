@@ -63,7 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       })}
       {/* Download button */}
       <button
-        className={`group flex items-center justify-center w-[30px] h-[30px] rounded-lg transition-colors duration-75 mt-2 ${selectedImageSrc ? 'bg-[#232323] hover:bg-[#333]' : 'opacity-50 cursor-not-allowed'}`}
+        className={`group flex items-center justify-center w-[30px] h-[30px] rounded-lg transition-colors duration-75 ${selectedImageSrc ? 'bg-[#232323] hover:bg-[#333]' : 'opacity-50 cursor-not-allowed'}`}
         title="Download selected image"
         disabled={!selectedImageSrc}
         onClick={() => {

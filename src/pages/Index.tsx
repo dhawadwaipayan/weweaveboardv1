@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { GenerationPanel } from '@/components/GenerationPanel';
@@ -8,6 +7,7 @@ import { TopBar } from '@/components/TopBar';
 
 const Index = () => {
   const [selectedTool, setSelectedTool] = useState('select');
+  const [selectedImageSrc, setSelectedImageSrc] = useState<string | null>(null);
   
   const handleToolSelect = (toolId: string) => {
     setSelectedTool(toolId);
@@ -17,10 +17,10 @@ const Index = () => {
   return (
     <main className="bg-[rgba(33,33,33,1)] flex flex-col overflow-hidden min-h-screen relative">
       {/* Canvas Background - behind everything */}
-      <Canvas selectedTool={selectedTool} />
+      <Canvas selectedTool={selectedTool} onSelectedImageSrcChange={setSelectedImageSrc} />
       
       {/* Sidebar - positioned center left */}
-      <Sidebar onToolSelect={handleToolSelect} />
+      <Sidebar onToolSelect={handleToolSelect} selectedImageSrc={selectedImageSrc} />
       
       {/* UI Overlay - above canvas */}
       <div className="relative z-10 flex flex-col pl-[37px] pr-20 py-[34px] min-h-screen max-md:px-5 pointer-events-none">

@@ -11,9 +11,10 @@ import { CanvasToolIndicator } from './CanvasToolIndicator';
 interface CanvasProps {
   className?: string;
   selectedTool?: string;
+  onSelectedImageSrcChange?: (src: string | null) => void;
 }
 
-export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = 'select' }) => {
+export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = 'select', onSelectedImageSrcChange }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isPanning, setIsPanning] = useState(false);
   const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 });
@@ -30,11 +31,7 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
   
   useHandTool({
     fabricCanvas,
-    selectedTool,
-    isPanning,
-    setIsPanning,
-    lastPanPoint,
-    setLastPanPoint
+    selectedTool
   });
   
   useDeleteHandler(fabricCanvas, selectedTool);
@@ -109,6 +106,31 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
       console.log('Canvas: Image import handler removed from window');
     };
   }, [fabricCanvas]);
+
+  // Add state to track last selected image src
+  useEffect(() => {
+    if (!fabricCanvas || !onSelectedImageSrcChange) return;
+
+    const handleSelection = () => {
+      const active = fabricCanvas.getActiveObject();
+      if (active && active.type === 'image' && (active as any).getSrc) {
+        // For Fabric.Image, getSrc() returns the image src
+        onSelectedImageSrcChange((active as any).getSrc());
+      } else {
+        onSelectedImageSrcChange(null);
+      }
+    };
+    fabricCanvas.on('selection:created', handleSelection);
+    fabricCanvas.on('selection:updated', handleSelection);
+    fabricCanvas.on('selection:cleared', handleSelection);
+    // Initial check
+    handleSelection();
+    return () => {
+      fabricCanvas.off('selection:created', handleSelection);
+      fabricCanvas.off('selection:updated', handleSelection);
+      fabricCanvas.off('selection:cleared', handleSelection);
+    };
+  }, [fabricCanvas, onSelectedImageSrcChange]);
 
   return (
     <div className={`fixed inset-0 z-0 overflow-hidden ${className}`}>
