@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { DownloadSimple } from '@phosphor-icons/react';
 
 interface ImageObject {
   id: string;
@@ -211,7 +212,25 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({
           alt="Imported"
           draggable={false}
         />
-        
+        {/* Download button overlay */}
+        {isSelected && (
+          <button
+            onClick={e => {
+              e.stopPropagation();
+              const link = document.createElement('a');
+              link.href = image.src;
+              link.download = `image-${image.id}.png`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }}
+            className="absolute top-2 right-2 bg-black/80 hover:bg-black/90 text-white rounded-full p-1 shadow-lg z-[100] border-2 border-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+            title="Download image"
+            style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+          >
+            <DownloadSimple size={22} weight="bold" />
+          </button>
+        )}
         {/* Selection Border */}
         {isSelected && (
           <div 

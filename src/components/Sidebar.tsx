@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { ArrowsOutCardinal, PaintBrush, Shapes, TextT, RectangleDashed, Hand } from '@phosphor-icons/react';
+import { ArrowsOutCardinal, PaintBrush, Shapes, TextT, RectangleDashed, Hand, DownloadSimple } from '@phosphor-icons/react';
 
 interface SidebarProps {
   onToolSelect?: (toolId: string) => void;
+  selectedImageSrc?: string | null;
 }
 export const Sidebar: React.FC<SidebarProps> = ({
-  onToolSelect
+  onToolSelect,
+  selectedImageSrc
 }) => {
   const [selectedTool, setSelectedTool] = useState<string>('select');
   const tools = [{
@@ -59,5 +61,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         );
       })}
+      {/* Download button */}
+      <button
+        className={`group flex items-center justify-center w-[30px] h-[30px] rounded-lg transition-colors duration-75 mt-2 ${selectedImageSrc ? 'bg-[#232323] hover:bg-[#333]' : 'opacity-50 cursor-not-allowed'}`}
+        title="Download selected image"
+        disabled={!selectedImageSrc}
+        onClick={() => {
+          if (!selectedImageSrc) return;
+          const link = document.createElement('a');
+          link.href = selectedImageSrc;
+          link.download = 'selected-image.png';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }}
+      >
+        <DownloadSimple size={20} color={selectedImageSrc ? '#E1FF00' : '#A9A9A9'} className="group-hover:!text-white transition-colors duration-75" />
+      </button>
     </aside>;
 };
