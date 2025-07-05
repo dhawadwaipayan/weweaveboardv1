@@ -123,13 +123,6 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
       />
       
       <CanvasToolIndicator selectedTool={selectedTool} />
-      
-      {/* Debug indicator for hand tool */}
-      {selectedTool === 'hand' && (
-        <div className="absolute top-4 left-4 z-20 bg-red-500 text-white text-xs px-2 py-1 rounded">
-          Hand Tool Active - Panning: {isPanning ? 'Yes' : 'No'}
-        </div>
-      )}
     </div>
   );
 };
