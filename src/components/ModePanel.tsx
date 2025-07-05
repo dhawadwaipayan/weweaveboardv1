@@ -212,24 +212,9 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
         return;
       }
       const imageUrl = `data:image/png;base64,${base64}`;
-      let x = 100, y = 100;
-      if (selectedObjects.length > 0) {
-        // Place to the right of the rightmost selected object
-        const bounds = selectedObjects.reduce((acc, obj) => {
-          const left = obj.left ?? 0;
-          const top = obj.top ?? 0;
-          const width = obj.width ? obj.width * (obj.scaleX ?? 1) : 0;
-          const height = obj.height ? obj.height * (obj.scaleY ?? 1) : 0;
-          return {
-            minX: Math.min(acc.minX, left),
-            minY: Math.min(acc.minY, top),
-            maxX: Math.max(acc.maxX, left + width),
-            maxY: Math.max(acc.maxY, top + height)
-          };
-        }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
-        x = bounds.maxX + 40; // 40px gap
-        y = bounds.minY;
-      }
+      // Place the generated image to the right of the bounding box
+      let x = sketchBoundingBox.left + sketchBoundingBox.width + 40; // 40px gap
+      let y = sketchBoundingBox.top;
       const finalImgObj = await FabricImage.fromURL(imageUrl);
       finalImgObj.set({
         left: x,
