@@ -7,6 +7,7 @@ import { useFrameTool } from '@/hooks/useFrameTool';
 import { useTextTool } from '@/hooks/useTextTool';
 import { useHandTool } from '@/hooks/useHandTool';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
+import { useFrameManager } from '@/hooks/useFrameManager';
 import { CanvasToolIndicator } from './CanvasToolIndicator';
 
 interface CanvasProps {
@@ -57,6 +58,9 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
   });
   
   useDeleteHandler(fabricCanvas, selectedTool);
+  
+  // Manage frame containers and their children
+  useFrameManager(fabricCanvas);
 
   // Register global image import handler for TopBar
   useEffect(() => {

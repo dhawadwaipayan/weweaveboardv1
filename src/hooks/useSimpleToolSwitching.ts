@@ -18,11 +18,12 @@ export const useSimpleToolSwitching = (
         fabricCanvas.hoverCursor = 'crosshair';
         fabricCanvas.moveCursor = 'crosshair';
         
-        // Configure brush
+        // Configure brush with visible bright color
         if (fabricCanvas.freeDrawingBrush) {
-          fabricCanvas.freeDrawingBrush.color = '#FF0000';
-          fabricCanvas.freeDrawingBrush.width = 3;
+          fabricCanvas.freeDrawingBrush.color = '#00FF00'; // Bright green for visibility
+          fabricCanvas.freeDrawingBrush.width = 5;
         }
+        console.log('Drawing mode enabled, brush configured');
         break;
         
       case 'select':
