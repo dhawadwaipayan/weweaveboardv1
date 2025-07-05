@@ -7,7 +7,7 @@ import { Canvas } from '@/components/Canvas';
 import { TopBar } from '@/components/TopBar';
 
 const Index = () => {
-  const [selectedTool, setSelectedTool] = useState('move');
+  const [selectedTool, setSelectedTool] = useState('select');
   
   const handleToolSelect = (toolId: string) => {
     setSelectedTool(toolId);

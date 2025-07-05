@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowsOutCardinal, PaintBrush, Shapes, TextT, RectangleDashed } from '@phosphor-icons/react';
+import { ArrowsOutCardinal, PaintBrush, Shapes, TextT, RectangleDashed, Hand } from '@phosphor-icons/react';
 
 interface SidebarProps {
   onToolSelect?: (toolId: string) => void;
@@ -7,11 +7,15 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({
   onToolSelect
 }) => {
-  const [selectedTool, setSelectedTool] = useState<string>('move');
+  const [selectedTool, setSelectedTool] = useState<string>('select');
   const tools = [{
-    id: 'move',
+    id: 'select',
     icon: ArrowsOutCardinal,
-    label: 'Move'
+    label: 'Select'
+  }, {
+    id: 'hand',
+    icon: Hand,
+    label: 'Hand'
   }, {
     id: 'draw',
     icon: PaintBrush,

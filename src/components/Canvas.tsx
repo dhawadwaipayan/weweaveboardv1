@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Canvas as FabricCanvas, Circle, Rect } from 'fabric';
+import { Canvas as FabricCanvas, Circle, Rect, Point } from 'fabric';
 
 interface CanvasProps {
   className?: string;
@@ -14,11 +14,13 @@ interface Frame {
   height: number;
 }
 
-export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = 'move' }) => {
+export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = 'select' }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
   const [frames, setFrames] = useState<Frame[]>([]);
   const [isCreatingFrame, setIsCreatingFrame] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
+  const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 });
 
   // Initialize Fabric.js canvas
   useEffect(() => {
@@ -84,17 +86,29 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
           fabricCanvas.freeDrawingBrush.width = 3;
         }
         break;
-      case 'move':
-        console.log('Activating move mode');
+      case 'select':
+        console.log('Activating select mode');
         fabricCanvas.selection = true;
         fabricCanvas.hoverCursor = 'move';
         fabricCanvas.moveCursor = 'move';
+        break;
+      case 'hand':
+        console.log('Activating hand mode');
+        fabricCanvas.selection = false;
+        fabricCanvas.hoverCursor = 'grab';
+        fabricCanvas.moveCursor = 'grab';
         break;
       case 'frame':
         console.log('Activating frame mode');
         fabricCanvas.selection = false;
         fabricCanvas.hoverCursor = 'crosshair';
         fabricCanvas.moveCursor = 'crosshair';
+        break;
+      case 'text':
+        console.log('Activating text mode');
+        fabricCanvas.selection = false;
+        fabricCanvas.hoverCursor = 'text';
+        fabricCanvas.moveCursor = 'text';
         break;
       default:
         fabricCanvas.selection = true;
@@ -234,9 +248,70 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
     };
   }, [fabricCanvas]);
 
-  // Main mouse event handler
+  // Handle pan functionality for hand tool
   useEffect(() => {
-    if (!fabricCanvas) return;
+    if (!fabricCanvas || selectedTool !== 'hand') return;
+
+    const handleMouseDown = (opt: any) => {
+      setIsPanning(true);
+      const pointer = fabricCanvas.getPointer(opt.e);
+      setLastPanPoint({ x: pointer.x, y: pointer.y });
+      fabricCanvas.setCursor('grabbing');
+    };
+
+    const handleMouseMove = (opt: any) => {
+      if (!isPanning) return;
+      
+      const pointer = fabricCanvas.getPointer(opt.e);
+      const deltaX = pointer.x - lastPanPoint.x;
+      const deltaY = pointer.y - lastPanPoint.y;
+      
+      const currentTransform = fabricCanvas.viewportTransform;
+      if (currentTransform) {
+        currentTransform[4] += deltaX;
+        currentTransform[5] += deltaY;
+        fabricCanvas.requestRenderAll();
+      }
+      
+      setLastPanPoint({ x: pointer.x, y: pointer.y });
+    };
+
+    const handleMouseUp = () => {
+      setIsPanning(false);
+      fabricCanvas.setCursor('grab');
+    };
+
+    const handleWheel = (opt: any) => {
+      const delta = opt.e.deltaY;
+      let zoom = fabricCanvas.getZoom();
+      zoom *= 0.999 ** delta;
+      
+      // Set zoom limits
+      if (zoom > 20) zoom = 20;
+      if (zoom < 0.01) zoom = 0.01;
+      
+      const pointer = fabricCanvas.getPointer(opt.e);
+      fabricCanvas.zoomToPoint(new Point(pointer.x, pointer.y), zoom);
+      opt.e.preventDefault();
+      opt.e.stopPropagation();
+    };
+
+    fabricCanvas.on('mouse:down', handleMouseDown);
+    fabricCanvas.on('mouse:move', handleMouseMove);
+    fabricCanvas.on('mouse:up', handleMouseUp);
+    fabricCanvas.on('mouse:wheel', handleWheel);
+
+    return () => {
+      fabricCanvas.off('mouse:down', handleMouseDown);
+      fabricCanvas.off('mouse:move', handleMouseMove);
+      fabricCanvas.off('mouse:up', handleMouseUp);
+      fabricCanvas.off('mouse:wheel', handleWheel);
+    };
+  }, [fabricCanvas, selectedTool, isPanning, lastPanPoint]);
+
+  // Main mouse event handler for other tools
+  useEffect(() => {
+    if (!fabricCanvas || selectedTool === 'hand') return;
 
     const handleMouseDown = (opt: any) => {
       if (selectedTool === 'frame') {
@@ -263,7 +338,8 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', selectedTool = '
         <div className="absolute bottom-4 right-4 z-20 bg-[rgba(0,0,0,0.8)] text-[#E1FF00] text-xs px-3 py-2 rounded-md pointer-events-none border border-[rgba(255,255,255,0.1)]">
           {selectedTool === 'draw' && 'Drawing mode active'}
           {selectedTool === 'frame' && 'Frame creation mode'}
-          {selectedTool === 'move' && 'Move/Select mode'}
+          {selectedTool === 'select' && 'Select/Move mode'}
+          {selectedTool === 'hand' && 'Pan & Zoom mode - Drag to pan, wheel to zoom'}
           {selectedTool === 'shape' && 'Shape mode'}
           {selectedTool === 'text' && 'Text mode'}
         </div>
