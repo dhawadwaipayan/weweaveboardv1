@@ -112,7 +112,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
       base64Image = tempCanvas.toDataURL({ format: 'png', multiplier: 1 });
       tempCanvas.dispose();
     } else {
-      // Fallback: try grouping the selected objects and rasterizing the group (deep copy, don't move originals)
+      // Fallback: robust rasterization using deep clones (never touch originals)
       try {
         const bounds = selectedObjects.reduce((acc, obj) => {
           const left = obj.left ?? 0;
@@ -129,24 +129,33 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
         const width = Math.ceil(bounds.maxX - bounds.minX);
         const height = Math.ceil(bounds.maxY - bounds.minY);
         const tempCanvas = new fabric.Canvas(null, { width, height, backgroundColor: '#fff' });
-        // Deep copy the group using toObject/fromObject
-        const group = new fabric.Group(selectedObjects.map((obj: any) => obj), {
-          left: 0,
-          top: 0
+        // Deep clone all selected objects using toObject + enlivenObjects
+        const serialized = selectedObjects.map(obj => obj.toObject());
+        await new Promise<void>((resolve, reject) => {
+          fabric.util.enlivenObjects(serialized, (clones: any[]) => {
+            if (!clones || clones.length === 0) {
+              reject(new Error('No objects could be enlivened'));
+              return;
+            }
+            // Optionally group if more than one
+            let toAdd: any = clones;
+            if (clones.length > 1) {
+              toAdd = new fabric.Group(clones, { left: 0, top: 0 });
+            }
+            if (Array.isArray(toAdd)) {
+              toAdd.forEach((obj: any) => tempCanvas.add(obj));
+            } else {
+              tempCanvas.add(toAdd);
+            }
+            tempCanvas.renderAll();
+            base64Image = tempCanvas.toDataURL({ format: 'png', multiplier: 1 });
+            tempCanvas.dispose();
+            resolve();
+          });
         });
-        const groupObj = group.toObject();
-        group.dispose();
-        await new Promise(resolve => fabric.Group.fromObject(groupObj, (clonedGroup: any) => {
-          clonedGroup.set({ left: 0, top: 0 });
-          tempCanvas.add(clonedGroup);
-          tempCanvas.renderAll();
-          base64Image = tempCanvas.toDataURL({ format: 'png', multiplier: 1 });
-          tempCanvas.dispose();
-          resolve(null);
-        }));
-        console.log('Rasterized using group fallback (deep copy).');
+        console.log('Rasterized using robust deep clone fallback.');
       } catch (e) {
-        console.warn('Group rasterization fallback failed:', e);
+        console.warn('Robust rasterization fallback failed:', e);
       }
     }
     if (!base64Image) {
