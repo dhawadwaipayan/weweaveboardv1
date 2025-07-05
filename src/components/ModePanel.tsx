@@ -89,35 +89,38 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef }) => {
       const cropWidth = bounds.maxX - bounds.minX;
       const cropHeight = bounds.maxY - bounds.minY;
       if (cropWidth <= 0 || cropHeight <= 0) throw new Error('Invalid selection bounding box.');
-      // 2. Deep clone and offset objects
-      const clones: any[] = [];
-      for (const obj of selectedObjects) {
+      // 2. Serialize all selected objects
+      const serialized = selectedObjects.map(obj => obj.toObject());
+      // 3. Revive objects using fabric.util.enlivenObjects
+      const revivedObjects = await new Promise<any[]>((resolve, reject) => {
+        // @ts-ignore
+        fabric.util.enlivenObjects(serialized, (enlivened: any[]) => {
+          if (!enlivened || enlivened.length === 0) reject(new Error('No objects could be revived for rasterization.'));
+          else resolve(enlivened);
+        });
+      });
+      // 4. Offset revived objects
+      const offsetObjects = revivedObjects.map((obj, i) => {
         try {
-          const clone = await new Promise<any>((resolve, reject) => {
-            (obj as any).clone((cloned: any) => {
-              if (!cloned) reject(new Error('Clone failed'));
-              else resolve(cloned);
-            });
-          });
-          // Offset so that the selection bounding box aligns with (0,0)
-          clone.left = (obj.left ?? 0) - bounds.minX;
-          clone.top = (obj.top ?? 0) - bounds.minY;
-          clones.push(clone);
+          obj.left = (selectedObjects[i].left ?? 0) - bounds.minX;
+          obj.top = (selectedObjects[i].top ?? 0) - bounds.minY;
+          return obj;
         } catch (e) {
-          console.warn('Failed to clone object for rasterization:', obj, e);
+          console.warn('Failed to offset revived object:', obj, e);
+          return null;
         }
-      }
-      if (clones.length === 0) throw new Error('No objects could be cloned for rasterization.');
-      // 3. Create temp canvas and add clones
+      }).filter(Boolean);
+      if (offsetObjects.length === 0) throw new Error('No objects could be revived and offset for rasterization.');
+      // 5. Create temp canvas and add objects
       // @ts-ignore
       const tempCanvas = new fabric.StaticCanvas(null, {
         width: cropWidth,
         height: cropHeight,
         backgroundColor: fabricCanvas.backgroundColor || '#fff',
       });
-      clones.forEach(clone => tempCanvas.add(clone));
+      offsetObjects.forEach(obj => tempCanvas.add(obj));
       tempCanvas.renderAll();
-      // 4. Export as PNG
+      // 6. Export as PNG
       base64Image = tempCanvas.toDataURL({ format: 'png', multiplier: 1 });
       setLastInputImage(base64Image);
       // Auto-download the image
