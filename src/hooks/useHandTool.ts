@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Canvas as FabricCanvas, Point } from 'fabric';
 
 interface UseHandToolProps {
@@ -18,6 +18,9 @@ export const useHandTool = ({
   lastPanPoint,
   setLastPanPoint
 }: UseHandToolProps) => {
+  const panningRef = useRef(false);
+  const lastPanPointRef = useRef({ x: 0, y: 0 });
+
   useEffect(() => {
     if (!fabricCanvas) return;
     
@@ -31,30 +34,36 @@ export const useHandTool = ({
 
     const handleMouseDown = (opt: any) => {
       const pointer = fabricCanvas.getPointer(opt.e);
+      panningRef.current = true;
+      lastPanPointRef.current = { x: pointer.x, y: pointer.y };
       setIsPanning(true);
-      setLastPanPoint({ x: pointer.x, y: pointer.y });
       fabricCanvas.setCursor('grabbing');
     };
 
     const handleMouseMove = (opt: any) => {
-      if (!isPanning) return;
+      if (!panningRef.current) return;
       
       const pointer = fabricCanvas.getPointer(opt.e);
-      const deltaX = pointer.x - lastPanPoint.x;
-      const deltaY = pointer.y - lastPanPoint.y;
+      const deltaX = pointer.x - lastPanPointRef.current.x;
+      const deltaY = pointer.y - lastPanPointRef.current.y;
       
-      const currentTransform = fabricCanvas.viewportTransform;
-      if (currentTransform) {
-        currentTransform[4] += deltaX;
-        currentTransform[5] += deltaY;
-        fabricCanvas.requestRenderAll();
-      }
+      // Use relativePan for smoother panning
+      fabricCanvas.relativePan(new Point(deltaX, deltaY));
       
-      setLastPanPoint({ x: pointer.x, y: pointer.y });
+      lastPanPointRef.current = { x: pointer.x, y: pointer.y };
     };
 
     const handleMouseUp = () => {
-      if (isPanning) {
+      if (panningRef.current) {
+        panningRef.current = false;
+        setIsPanning(false);
+        fabricCanvas.setCursor('grab');
+      }
+    };
+
+    const handleMouseLeave = () => {
+      if (panningRef.current) {
+        panningRef.current = false;
         setIsPanning(false);
         fabricCanvas.setCursor('grab');
       }
@@ -77,13 +86,18 @@ export const useHandTool = ({
     fabricCanvas.on('mouse:down', handleMouseDown);
     fabricCanvas.on('mouse:move', handleMouseMove);
     fabricCanvas.on('mouse:up', handleMouseUp);
+    fabricCanvas.on('mouse:out', handleMouseLeave);
     fabricCanvas.on('mouse:wheel', handleWheel);
 
     return () => {
       fabricCanvas.off('mouse:down', handleMouseDown);
       fabricCanvas.off('mouse:move', handleMouseMove);
       fabricCanvas.off('mouse:up', handleMouseUp);
+      fabricCanvas.off('mouse:out', handleMouseLeave);
       fabricCanvas.off('mouse:wheel', handleWheel);
+      
+      // Reset panning state when cleaning up
+      panningRef.current = false;
     };
-  }, [fabricCanvas, selectedTool, isPanning, lastPanPoint, setIsPanning, setLastPanPoint]);
+  }, [fabricCanvas, selectedTool]); // Removed state dependencies to prevent re-renders
 };
