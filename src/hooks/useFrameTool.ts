@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { Canvas as FabricCanvas, Rect } from 'fabric';
-import { FrameContainer } from '@/lib/FrameContainer';
 
 interface Frame {
   id: string;
@@ -45,24 +44,24 @@ export const useFrameTool = ({
       const startX = pointer.x;
       const startY = pointer.y;
 
-      // Create frame container with proper initial properties
-      const frameContainer = new FrameContainer([], {
+      // Create a proper rectangle for the frame with correct fill color
+      const frameRect = new Rect({
         left: startX,
         top: startY,
         width: 0,
         height: 0,
-        selectable: false, // Temporary during creation
-        evented: true,     // Keep events enabled
-        fill: '#EDEDED',   // Frame fill color
+        fill: '#EDEDED',   // Frame fill color - light gray
         stroke: undefined, // No border
         strokeWidth: 0,    // No border
+        selectable: false, // Temporary during creation
+        evented: true,     // Keep events enabled
+        name: 'frame-rectangle',
       });
 
-      frameContainer.setCanvas(fabricCanvas);
-      fabricCanvas.add(frameContainer);
+      fabricCanvas.add(frameRect);
       
       // Always keep frames at the back
-      frameContainer.sendToBack();
+      fabricCanvas.sendObjectToBack(frameRect);
       let isDrawing = true;
 
       const onMouseMove = (opt: any) => {
@@ -74,7 +73,7 @@ export const useFrameTool = ({
         const left = Math.min(startX, pointer.x);
         const top = Math.min(startY, pointer.y);
 
-        frameContainer.set({ left, top, width, height });
+        frameRect.set({ left, top, width, height });
         fabricCanvas.renderAll();
       };
 
@@ -85,31 +84,29 @@ export const useFrameTool = ({
         fabricCanvas.off('mouse:move', onMouseMove);
         fabricCanvas.off('mouse:up', onMouseUp);
         
-        if ((frameContainer.width || 0) > 10 && (frameContainer.height || 0) > 10) {
+        if ((frameRect.width || 0) > 10 && (frameRect.height || 0) > 10) {
           console.log('Frame created successfully, making selectable');
           
-          // Make frame selectable and add metadata to prevent override
-          frameContainer.set({ 
+          // Make frame selectable and ensure it stays at the back
+          frameRect.set({ 
             selectable: true, 
             evented: true,
           });
           
-          // Update children after frame is created
-          setTimeout(() => {
-            frameContainer.updateChildren();
-          }, 100);
+          // Ensure frame stays at the back
+          fabricCanvas.sendObjectToBack(frameRect);
           
           const newFrame: Frame = {
             id: Date.now().toString(),
-            x: frameContainer.left || 0,
-            y: frameContainer.top || 0,
-            width: frameContainer.width || 0,
-            height: frameContainer.height || 0,
+            x: frameRect.left || 0,
+            y: frameRect.top || 0,
+            width: frameRect.width || 0,
+            height: frameRect.height || 0,
           };
           setFrames(prev => [...prev, newFrame]);
         } else {
           console.log('Frame too small, removing');
-          fabricCanvas.remove(frameContainer);
+          fabricCanvas.remove(frameRect);
         }
         
         fabricCanvas.renderAll();

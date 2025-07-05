@@ -7,6 +7,7 @@ import { useObjectStateManager } from '@/hooks/useObjectStateManager';
 import { useTextTool } from '@/hooks/useTextTool';
 import { useHandTool } from '@/hooks/useHandTool';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
+import { useFrameTool } from '@/hooks/useFrameTool';
 import { CanvasToolIndicator } from './CanvasToolIndicator';
 
 interface CanvasProps {
@@ -24,6 +25,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isPanning, setIsPanning] = useState(false);
     const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 });
+    const [isCreatingFrame, setIsCreatingFrame] = useState(false);
+    const [frames, setFrames] = useState<any[]>([]);
 
     // Initialize Fabric.js canvas
     const fabricCanvas = useCanvasInitialization(canvasRef);
@@ -46,6 +49,15 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
     });
     
     useDeleteHandler(fabricCanvas, selectedTool);
+    
+    // Frame tool integration
+    useFrameTool({
+      fabricCanvas,
+      selectedTool,
+      isCreatingFrame,
+      setIsCreatingFrame,
+      setFrames
+    });
 
     // Make drawn paths selectable when created
     useEffect(() => {
