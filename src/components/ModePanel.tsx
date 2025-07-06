@@ -56,6 +56,12 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
   const handleSketchCancel = () => {
     if (closeSketchBar) closeSketchBar();
     if (setSelectedMode) setSelectedMode(''); // Reset to non-clicked state
+    if (canvasRef.current) {
+      const fabricCanvas = canvasRef.current.getFabricCanvas();
+      removeBoundingBoxesByName(fabricCanvas, 'sketch-bounding-box');
+    }
+    boundingBoxRef.current = null;
+    setSketchBoundingBox(null);
   };
 
   // Bounding box state for Sketch mode
@@ -330,6 +336,12 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
   const handleRenderCancel = () => {
     setShowRenderSubBar(false);
     if (setSelectedMode) setSelectedMode(''); // Reset to non-clicked state
+    if (canvasRef.current) {
+      const fabricCanvas = canvasRef.current.getFabricCanvas();
+      removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
+    }
+    boundingBoxRef.current = null;
+    setRenderBoundingBox(null);
   };
 
   const handleRenderGenerate = async (details: string) => {
@@ -464,11 +476,11 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     if (!showRenderSubBar || !canvasRef.current) return;
     const fabricCanvas = canvasRef.current.getFabricCanvas();
     if (!fabricCanvas) return;
-    if (boundingBoxRef.current) {
-      fabricCanvas.remove(boundingBoxRef.current);
-      boundingBoxRef.current = null;
-      setRenderBoundingBox(null);
-    }
+    // Remove any existing bounding box (robust)
+    removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
+    boundingBoxRef.current = null;
+    setRenderBoundingBox(null);
+    // LOCK BOARD: Disable all object interaction and selection
     fabricCanvas.forEachObject(obj => {
       obj.selectable = false;
       obj.evented = false;
@@ -483,6 +495,9 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       boundingBoxDrawing.current = true;
       const pointer = fabricCanvas.getPointer(opt.e);
       boundingBoxStart.current = { x: pointer.x, y: pointer.y };
+      // Remove any existing bounding box before creating new
+      removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
+      // Create a temp rect
       const rect = new fabric.Rect({
         left: pointer.x,
         top: pointer.y,
@@ -569,15 +584,32 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     fabricCanvas.on('mouse:down', handleMouseDown);
     fabricCanvas.on('mouse:move', handleMouseMove);
     fabricCanvas.on('mouse:up', handleMouseUp);
+    // Listen for image add/remove/clear and remove bounding box
+    const handleObjectAdded = (e) => {
+      if (e.target && e.target.type === 'image') {
+        removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
+        boundingBoxRef.current = null;
+        setRenderBoundingBox(null);
+      }
+    };
+    const handleObjectRemoved = (e) => {
+      if (e.target && e.target.type === 'image') {
+        removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
+        boundingBoxRef.current = null;
+        setRenderBoundingBox(null);
+      }
+    };
+    fabricCanvas.on('object:added', handleObjectAdded);
+    fabricCanvas.on('object:removed', handleObjectRemoved);
     return () => {
       fabricCanvas.off('mouse:down', handleMouseDown);
       fabricCanvas.off('mouse:move', handleMouseMove);
       fabricCanvas.off('mouse:up', handleMouseUp);
+      fabricCanvas.off('object:added', handleObjectAdded);
+      fabricCanvas.off('object:removed', handleObjectRemoved);
       fabricCanvas.defaultCursor = 'default';
-      if (boundingBoxRef.current) {
-        fabricCanvas.remove(boundingBoxRef.current);
-        boundingBoxRef.current = null;
-      }
+      removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
+      boundingBoxRef.current = null;
       setRenderBoundingBox(null);
     };
   }, [showRenderSubBar, canvasRef]);
