@@ -23,12 +23,18 @@ export async function callOpenAIGptImage({
   }
   let response;
   try {
+    let body;
+    if (endpoint === '/api/sketch-ai') {
+      body = JSON.stringify({ base64Image: base64Sketch, promptText });
+    } else {
+      body = JSON.stringify({ base64Sketch, base64Material, promptText });
+    }
     response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ base64Sketch, base64Material, promptText })
+      body
     });
   } catch (fetchErr) {
     console.error('[callOpenAIGptImage] Fetch failed:', fetchErr);
