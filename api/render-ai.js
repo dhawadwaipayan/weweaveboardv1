@@ -18,14 +18,15 @@ export default async function handler(req, res) {
 
   try {
     console.log('Making OpenAI API request...');
-    const contentArr = [
-      { type: 'text', text: promptText },
-      { type: 'image_url', image_url: { url: base64Sketch } }
+    // Build input array: always include sketch, optionally material
+    const inputArr = [
+      { type: 'input_text', text: promptText },
+      { type: 'input_image', image_url: base64Sketch }
     ];
     if (base64Material) {
-      contentArr.push({ type: 'image_url', image_url: { url: base64Material } });
+      inputArr.push({ type: 'input_image', image_url: base64Material });
     }
-    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+    const openaiRes = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -33,15 +34,28 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'gpt-4.1',
-        messages: [
+        input: [
           {
             role: 'user',
-            content: contentArr
+            content: inputArr
+          }
+        ],
+        text: { format: { type: 'text' } },
+        reasoning: {},
+        tools: [
+          {
+            type: 'image_generation',
+            size: '1024x1024',
+            quality: 'high',
+            output_format: 'png',
+            background: 'transparent',
+            moderation: 'low'
           }
         ],
         temperature: 1,
-        max_tokens: 2048,
-        top_p: 1
+        max_output_tokens: 2048,
+        top_p: 1,
+        store: true
       })
     });
     console.log('OpenAI response status:', openaiRes.status, openaiRes.statusText);
@@ -51,19 +65,6 @@ export default async function handler(req, res) {
       console.error('OpenAI API error:', data);
       return res.status(openaiRes.status).json({ error: data });
     }
-    let base64 = null;
-    if (data.choices && data.choices[0]) {
-      const msg = data.choices[0].message;
-      if (msg.content && Array.isArray(msg.content)) {
-        for (const part of msg.content) {
-          if (part.type === 'image_url' && part.image_url && part.image_url.url) {
-            base64 = part.image_url.url;
-            break;
-          }
-        }
-      }
-    }
-    data.generated_image = base64;
     console.log('Sending successful response to client');
     res.status(openaiRes.status).json(data);
   } catch (err) {
