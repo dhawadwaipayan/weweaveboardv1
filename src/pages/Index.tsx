@@ -4,6 +4,7 @@ import { GenerationPanel } from '@/components/GenerationPanel';
 import { ModePanel } from '@/components/ModePanel';
 import { Canvas, CanvasHandle } from '@/components/Canvas';
 import { TopBar } from '@/components/TopBar';
+import ZoomBar from '@/components/ZoomBar';
 
 const Index = () => {
   const [selectedTool, setSelectedTool] = useState<string | null>('select');
@@ -13,6 +14,11 @@ const Index = () => {
   const [selectedMode, setSelectedMode] = useState<string>('');
   const canvasRef = useRef<CanvasHandle>(null);
   
+  // Zoom state for demo
+  const [zoom, setZoom] = useState(100);
+  const handleZoomIn = () => setZoom(z => Math.min(z + 10, 500));
+  const handleZoomOut = () => setZoom(z => Math.max(z - 10, 10));
+
   const handleToolSelect = (toolId: string) => {
     if (sketchBarOpen && !boundingBoxCreated) {
       setSketchBarOpen(false);
@@ -63,6 +69,7 @@ const Index = () => {
         <div className="flex flex-1 relative">
           <div className="flex-1" />
           
+          {/* Restore original bottom bar position: centered at bottom */}
           <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-2.5 pointer-events-auto">
             <GenerationPanel />
             <ModePanel
@@ -75,6 +82,10 @@ const Index = () => {
               setSelectedMode={setSelectedMode}
             />
           </div>
+        </div>
+        {/* ZoomBar: bottom right, inside the same container as TopBar, right-6 for perfect gap */}
+        <div className="pointer-events-auto absolute right-6 bottom-0 z-20 mb-[34px]">
+          <ZoomBar zoom={zoom} onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} />
         </div>
       </div>
     </main>
