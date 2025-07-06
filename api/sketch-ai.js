@@ -5,12 +5,12 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { base64Sketch, base64Material, promptText } = req.body || {};
+  const { base64Image, promptText } = req.body || {};
   const apiKey = process.env.OPENAI_API_KEY;
   
-  if (!base64Sketch || !promptText) {
-    console.log('Missing required fields:', { base64Sketch: !!base64Sketch, promptText: !!promptText });
-    return res.status(400).json({ error: 'Missing base64Sketch or promptText' });
+  if (!base64Image || !promptText) {
+    console.log('Missing required fields:', { base64Image: !!base64Image, promptText: !!promptText });
+    return res.status(400).json({ error: 'Missing base64Image or promptText' });
   }
   if (!apiKey) {
     console.log('Missing OPENAI_API_KEY in environment variables');
@@ -19,14 +19,8 @@ export default async function handler(req, res) {
 
   try {
     console.log('Making OpenAI API request...');
-    const contentArr = [
-      { type: 'text', text: promptText },
-      { type: 'image_url', image_url: { url: base64Sketch } }
-    ];
-    if (base64Material) {
-      contentArr.push({ type: 'image_url', image_url: { url: base64Material } });
-    }
-    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+    
+    const openaiRes = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -34,12 +28,17 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'gpt-4.1',
-        messages: [
+        input: [
           {
             role: 'user',
-            content: contentArr
+            content: [
+              { type: 'input_text', text: promptText },
+              { type: 'input_image', image_url: base64Image }
+            ]
           }
         ],
+        text: { format: { type: 'text' } },
+        reasoning: {},
         tools: [
           {
             type: 'image_generation',
@@ -47,14 +46,13 @@ export default async function handler(req, res) {
             quality: 'high',
             output_format: 'png',
             background: 'transparent',
-            moderation: 'auto',
-            partial_images: 1
+            moderation: 'low'
           }
         ],
-        tool_choice: 'auto',
         temperature: 1,
-        max_tokens: 2048,
-        top_p: 1
+        max_output_tokens: 2048,
+        top_p: 1,
+        store: true
       })
     });
     
@@ -68,28 +66,6 @@ export default async function handler(req, res) {
       return res.status(openaiRes.status).json({ error: data });
     }
     
-    let base64 = null;
-    if (data.choices && data.choices[0]) {
-      const msg = data.choices[0].message;
-      if (msg.tool_calls && msg.tool_calls.length > 0) {
-        for (const call of msg.tool_calls) {
-          if (call.type === 'image_generation' && call.image) {
-            base64 = call.image;
-            break;
-          }
-        }
-      }
-      if (!base64 && msg.content && Array.isArray(msg.content)) {
-        for (const part of msg.content) {
-          if (part.type === 'image_url' && part.image_url) {
-            base64 = part.image_url;
-            break;
-          }
-        }
-      }
-    }
-    
-    data.generated_image = base64;
     console.log('Sending successful response to client');
     res.status(openaiRes.status).json(data);
   } catch (err) {
