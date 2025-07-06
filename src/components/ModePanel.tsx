@@ -5,7 +5,6 @@ import type { CanvasHandle } from './Canvas';
 import { callOpenAIGptImage } from '@/lib/openaiSketch';
 import { Image as FabricImage } from 'fabric';
 import * as fabric from 'fabric';
-import html2canvas from 'html2canvas';
 
 export interface ModePanelProps {
   canvasRef: React.RefObject<CanvasHandle>;
@@ -232,59 +231,6 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     };
   }, [showSketchSubBar, canvasRef]);
 
-  // Helper: Capture bounding box area using html2canvas (canvas-pixel-space only)
-  async function captureBoundingBoxAsBase64(boundingBoxRef, canvasRef) {
-    const box = boundingBoxRef.current;
-    if (!box) throw new Error('No bounding box');
-    // Get the actual <canvas> element
-    const fabricCanvas = canvasRef.current?.getFabricCanvas();
-    const lowerCanvasEl = fabricCanvas?.lowerCanvasEl;
-    if (!lowerCanvasEl) throw new Error('Fabric canvas element not found');
-    // Get scale factor and devicePixelRatio
-    const fabricWidth = fabricCanvas.getWidth();
-    const fabricHeight = fabricCanvas.getHeight();
-    const dpr = window.devicePixelRatio || 1;
-    // Get bounding box in Fabric canvas coordinates
-    const boxLeft = box.left * (box.scaleX ?? 1);
-    const boxTop = box.top * (box.scaleY ?? 1);
-    const boxWidth = box.width * (box.scaleX ?? 1);
-    const boxHeight = box.height * (box.scaleY ?? 1);
-    // Scale to canvas pixel space (not CSS size)
-    const cropLeft = Math.round(boxLeft * dpr);
-    const cropTop = Math.round(boxTop * dpr);
-    const cropWidth = Math.round(boxWidth * dpr);
-    const cropHeight = Math.round(boxHeight * dpr);
-    // Debug logging
-    console.log('[html2canvas export - canvas pixel space]');
-    console.log('Fabric canvas size:', fabricWidth, fabricHeight);
-    console.log('devicePixelRatio:', dpr);
-    console.log('Bounding box (fabric):', boxLeft, boxTop, boxWidth, boxHeight);
-    console.log('Bounding box (canvas px):', cropLeft, cropTop, cropWidth, cropHeight);
-    // Use html2canvas to capture the canvas element
-    const canvas = await html2canvas(lowerCanvasEl, {useCORS: true, backgroundColor: null, scale: dpr});
-    // Draw a debug rectangle on the screenshot
-    const ctx = canvas.getContext('2d');
-    ctx.save();
-    ctx.strokeStyle = 'red';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(cropLeft, cropTop, cropWidth, cropHeight);
-    ctx.restore();
-    // Crop the canvas to the bounding box area
-    // Clamp crop area to canvas bounds
-    const sx = Math.max(0, cropLeft);
-    const sy = Math.max(0, cropTop);
-    const sw = Math.min(cropWidth, canvas.width - sx);
-    const sh = Math.min(cropHeight, canvas.height - sy);
-    const imageData = ctx.getImageData(sx, sy, sw, sh);
-    // Create a new canvas for the cropped image
-    const croppedCanvas = document.createElement('canvas');
-    croppedCanvas.width = sw;
-    croppedCanvas.height = sh;
-    const croppedCtx = croppedCanvas.getContext('2d');
-    croppedCtx.putImageData(imageData, 0, 0);
-    return croppedCanvas.toDataURL('image/png');
-  }
-
   const handleSketchGenerate = async (details: string) => {
     setAiStatus('generating');
     setAiError(null);
@@ -302,10 +248,18 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       setAiStatus('idle');
       return;
     }
-    // Export the bounding box area as PNG using html2canvas
+    // Export the bounding box area as PNG using Fabric.js only
     let base64Sketch = null;
     try {
-      base64Sketch = await captureBoundingBoxAsBase64(boundingBoxRef, canvasRef);
+      const { left, top, width, height } = sketchBoundingBox;
+      base64Sketch = fabricCanvas.toDataURL({
+        format: 'png',
+        left,
+        top,
+        width,
+        height,
+        multiplier: 1,
+      });
       setLastInputImage(base64Sketch);
       // Auto-download the image for debugging
       if (base64Sketch) {
@@ -316,25 +270,11 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
         link.click();
         document.body.removeChild(link);
       }
-    } catch (e) {
-      // Fallback to Fabric.js export if html2canvas fails
-      try {
-        const { left, top, width, height } = sketchBoundingBox;
-        base64Sketch = fabricCanvas.toDataURL({
-          format: 'png',
-          left,
-          top,
-          width,
-          height,
-          multiplier: 1,
-        });
-        setLastInputImage(base64Sketch);
-      } catch (err) {
-        setAiStatus('idle');
-        alert('[Sketch AI] Bounding box export failed: ' + (err instanceof Error ? err.message : String(err)));
-        console.error('[Sketch AI] Bounding box export error:', err);
-        return;
-      }
+    } catch (err) {
+      setAiStatus('idle');
+      alert('[Sketch AI] Bounding box export failed: ' + (err instanceof Error ? err.message : String(err)));
+      console.error('[Sketch AI] Bounding box export error:', err);
+      return;
     }
     if (!base64Sketch) {
       alert('Failed to export bounding box area for AI generation.');
@@ -421,10 +361,18 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       setAiStatus('idle');
       return;
     }
-    // Export the bounding box area as PNG using html2canvas
+    // Export the bounding box area as PNG using Fabric.js only
     let base64Sketch = null;
     try {
-      base64Sketch = await captureBoundingBoxAsBase64(boundingBoxRef, canvasRef);
+      const { left, top, width, height } = renderBoundingBox;
+      base64Sketch = fabricCanvas.toDataURL({
+        format: 'png',
+        left,
+        top,
+        width,
+        height,
+        multiplier: 1,
+      });
       setLastInputImage(base64Sketch);
       if (base64Sketch) {
         const link = document.createElement('a');
@@ -434,25 +382,11 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
         link.click();
         document.body.removeChild(link);
       }
-    } catch (e) {
-      // Fallback to Fabric.js export if html2canvas fails
-      try {
-        const { left, top, width, height } = renderBoundingBox;
-        base64Sketch = fabricCanvas.toDataURL({
-          format: 'png',
-          left,
-          top,
-          width,
-          height,
-          multiplier: 1,
-        });
-        setLastInputImage(base64Sketch);
-      } catch (err) {
-        setAiStatus('idle');
-        alert('[Render AI] Bounding box export failed: ' + (err instanceof Error ? err.message : String(err)));
-        console.error('[Render AI] Bounding box export error:', err);
-        return;
-      }
+    } catch (err) {
+      setAiStatus('idle');
+      alert('[Render AI] Bounding box export failed: ' + (err instanceof Error ? err.message : String(err)));
+      console.error('[Render AI] Bounding box export error:', err);
+      return;
     }
     if (!base64Sketch) {
       alert('Failed to export bounding box area for AI generation.');
