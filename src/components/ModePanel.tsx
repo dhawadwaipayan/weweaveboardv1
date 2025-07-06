@@ -307,6 +307,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
   };
 
   const handleRenderGenerate = async (details: string) => {
+    console.log('Render bounding box before export:', renderBoundingBox);
     setAiStatus('generating');
     setAiError(null);
     if (!canvasRef.current) {
@@ -324,10 +325,10 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       return;
     }
     // Export the bounding box area as PNG
-    let base64Image = null;
+    let base64Sketch = null;
     try {
       const { left, top, width, height } = renderBoundingBox;
-      base64Image = fabricCanvas.toDataURL({
+      base64Sketch = fabricCanvas.toDataURL({
         format: 'png',
         left,
         top,
@@ -335,10 +336,10 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
         height,
         multiplier: 1,
       });
-      setLastInputImage(base64Image);
-      if (base64Image) {
+      setLastInputImage(base64Sketch);
+      if (base64Sketch) {
         const link = document.createElement('a');
-        link.href = base64Image;
+        link.href = base64Sketch;
         link.download = 'openai-input.png';
         document.body.appendChild(link);
         link.click();
@@ -350,14 +351,14 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       console.error('[Render AI] Bounding box export error:', e);
       return;
     }
-    if (!base64Image) {
+    if (!base64Sketch) {
       alert('Failed to export bounding box area for AI generation.');
       setAiStatus('idle');
       return;
     }
     // Use attached material if present, else use a pure white PNG
-    let materialImage = renderMaterial;
-    if (!materialImage) {
+    let base64Material = renderMaterial;
+    if (!base64Material) {
       // Create a 1024x1024 white PNG as fallback
       const canvas = document.createElement('canvas');
       canvas.width = 1024;
@@ -365,13 +366,14 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       const ctx = canvas.getContext('2d');
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, 1024, 1024);
-      materialImage = canvas.toDataURL('image/png');
+      base64Material = canvas.toDataURL('image/png');
     }
     // Prompt for render
     const promptText = `Now, use attached material to turn the sketch into a realistic representation with a transparent background. All the topstitches and buttons will be of same color. In case any prompt is given on the image or as an chat input, include those changes as well. ${details}`.trim();
     try {
       const result = await callOpenAIGptImage({
-        base64Image: materialImage,
+        base64Sketch,
+        base64Material,
         promptText
       });
       console.log('[Render AI] OpenAI API full response:', result);
@@ -577,6 +579,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
           onGenerate={handleRenderGenerate}
           onAddMaterial={handleAddMaterial}
           onMaterialChange={handleRenderMaterial}
+          canGenerate={!!renderBoundingBox}
         />
       )}
       <div style={{
