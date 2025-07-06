@@ -64,17 +64,22 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
   const boundingBoxDrawing = useRef(false);
   const boundingBoxStart = useRef<{ x: number, y: number } | null>(null);
 
+  // Utility: Remove all bounding boxes by name
+  const removeBoundingBoxesByName = (fabricCanvas, name) => {
+    if (!fabricCanvas) return;
+    const toRemove = fabricCanvas.getObjects().filter(obj => obj.name === name);
+    toRemove.forEach(obj => fabricCanvas.remove(obj));
+  };
+
   // Add bounding box by user drag when entering Sketch mode
   useEffect(() => {
     if (!showSketchSubBar || !canvasRef.current) return;
     const fabricCanvas = canvasRef.current.getFabricCanvas();
     if (!fabricCanvas) return;
-    // Remove any existing bounding box
-    if (boundingBoxRef.current) {
-      fabricCanvas.remove(boundingBoxRef.current);
-      boundingBoxRef.current = null;
-      setSketchBoundingBox(null);
-    }
+    // Remove any existing bounding box (robust)
+    removeBoundingBoxesByName(fabricCanvas, 'sketch-bounding-box');
+    boundingBoxRef.current = null;
+    setSketchBoundingBox(null);
     // LOCK BOARD: Disable all object interaction and selection
     fabricCanvas.forEachObject(obj => {
       obj.selectable = false;
@@ -92,6 +97,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       boundingBoxDrawing.current = true;
       const pointer = fabricCanvas.getPointer(opt.e);
       boundingBoxStart.current = { x: pointer.x, y: pointer.y };
+      // Remove any existing bounding box before creating new
+      removeBoundingBoxesByName(fabricCanvas, 'sketch-bounding-box');
       // Create a temp rect
       const rect = new fabric.Rect({
         left: pointer.x,
@@ -186,15 +193,34 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     fabricCanvas.on('mouse:down', handleMouseDown);
     fabricCanvas.on('mouse:move', handleMouseMove);
     fabricCanvas.on('mouse:up', handleMouseUp);
+    // Listen for image add/remove/clear and remove bounding box
+    const handleObjectAdded = (e) => {
+      if (e.target && e.target.type === 'image') {
+        removeBoundingBoxesByName(fabricCanvas, 'sketch-bounding-box');
+        boundingBoxRef.current = null;
+        setSketchBoundingBox(null);
+      }
+    };
+    const handleObjectRemoved = (e) => {
+      if (e.target && e.target.type === 'image') {
+        removeBoundingBoxesByName(fabricCanvas, 'sketch-bounding-box');
+        boundingBoxRef.current = null;
+        setSketchBoundingBox(null);
+      }
+    };
+    fabricCanvas.on('object:added', handleObjectAdded);
+    fabricCanvas.on('object:removed', handleObjectRemoved);
+    // Optionally, listen for pan/zoom/clear and remove bounding box
+    // (Add your own event hooks if you have custom pan/zoom logic)
     return () => {
       fabricCanvas.off('mouse:down', handleMouseDown);
       fabricCanvas.off('mouse:move', handleMouseMove);
       fabricCanvas.off('mouse:up', handleMouseUp);
+      fabricCanvas.off('object:added', handleObjectAdded);
+      fabricCanvas.off('object:removed', handleObjectRemoved);
       fabricCanvas.defaultCursor = 'default';
-      if (boundingBoxRef.current) {
-        fabricCanvas.remove(boundingBoxRef.current);
-        boundingBoxRef.current = null;
-      }
+      removeBoundingBoxesByName(fabricCanvas, 'sketch-bounding-box');
+      boundingBoxRef.current = null;
       setSketchBoundingBox(null);
     };
   }, [showSketchSubBar, canvasRef]);
