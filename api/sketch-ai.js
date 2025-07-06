@@ -33,13 +33,25 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-4.1',
         messages: [
           {
             role: 'user',
             content: contentArr
           }
         ],
+        tools: [
+          {
+            type: 'image_generation',
+            size: '1024x1024',
+            quality: 'high',
+            output_format: 'png',
+            background: 'transparent',
+            moderation: 'auto',
+            partial_images: 1
+          }
+        ],
+        tool_choice: 'auto',
         temperature: 1,
         max_tokens: 2048,
         top_p: 1
