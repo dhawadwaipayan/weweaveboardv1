@@ -1,13 +1,15 @@
 // OpenAI Sketch Image Generation Utility
 
 export async function callOpenAIGptImage({
-  base64Image,
+  base64Sketch,
+  base64Material,
   promptText
 }: {
-  base64Image: string,
+  base64Sketch: string,
+  base64Material?: string,
   promptText: string
 }) {
-  console.log('[callOpenAIGptImage] Preparing to call /api/sketch-ai', { base64ImageLength: base64Image.length, promptText });
+  console.log('[callOpenAIGptImage] Preparing to call /api/sketch-ai', { base64SketchLength: base64Sketch.length, base64MaterialLength: base64Material?.length, promptText });
   let response;
   try {
     response = await fetch("/api/sketch-ai", {
@@ -15,7 +17,7 @@ export async function callOpenAIGptImage({
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ base64Image, promptText })
+      body: JSON.stringify({ base64Sketch, base64Material, promptText })
     });
   } catch (fetchErr) {
     console.error('[callOpenAIGptImage] Fetch failed:', fetchErr);
