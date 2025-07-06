@@ -5,6 +5,7 @@ import { ModePanel } from '@/components/ModePanel';
 import { Canvas, CanvasHandle } from '@/components/Canvas';
 import { TopBar } from '@/components/TopBar';
 import ZoomBar from '@/components/ZoomBar';
+import UserBar from '@/components/UserBar';
 
 const Index = () => {
   const [selectedTool, setSelectedTool] = useState<string | null>('select');
@@ -64,6 +65,11 @@ const Index = () => {
         {/* Top Bar - positioned top left */}
         <div className="absolute top-[34px] left-6 pointer-events-auto">
           <TopBar />
+        </div>
+        
+        {/* User Bar - positioned top right */}
+        <div className="absolute top-[34px] right-6 z-30 pointer-events-auto">
+          <UserBar />
         </div>
         
         <div className="flex flex-1 relative">
