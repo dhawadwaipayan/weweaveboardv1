@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Canvas as FabricCanvas, Rect } from 'fabric';
+import Konva from 'konva';
 
 interface Frame {
   id: string;
@@ -10,22 +10,22 @@ interface Frame {
 }
 
 interface UseFrameToolProps {
-  fabricCanvas: FabricCanvas | null;
+  stageRef: React.RefObject<Konva.Stage>;
   selectedTool: string;
   isCreatingFrame: boolean;
-  setIsCreatingFrame: (value: boolean) => void;
-  setFrames: React.Dispatch<React.SetStateAction<Frame[]>>;
+  setIsCreatingFrame: (creating: boolean) => void;
+  setFrames: (frames: Frame[] | ((prev: Frame[]) => Frame[])) => void;
 }
 
 export const useFrameTool = ({
-  fabricCanvas,
+  stageRef,
   selectedTool,
   isCreatingFrame,
   setIsCreatingFrame,
   setFrames
 }: UseFrameToolProps) => {
   useEffect(() => {
-    if (!fabricCanvas) return;
+    if (!stageRef.current) return;
     
     // FREEZE: Skip during drawing mode
     if (selectedTool === 'draw') {
@@ -35,101 +35,105 @@ export const useFrameTool = ({
     
     if (selectedTool !== 'frame') return;
 
-    const handleFrameInteraction = (opt: any) => {
+    const stage = stageRef.current;
+    const layer = stage.findOne('Layer') as Konva.Layer;
+
+    const handleFrameInteraction = (e: Konva.KonvaEventObject<MouseEvent>) => {
       if (isCreatingFrame) return;
       
-      const target = opt.target;
+      const target = e.target;
       
-      // If clicking on an existing frame, select it
-      if (target && (target as any).name === 'frame-rectangle') {
-        fabricCanvas.setActiveObject(target);
-        fabricCanvas.renderAll();
+      // If clicking on an existing frame, do nothing for now
+      if (target && target.name() === 'frame-rectangle') {
         return;
       }
       
       // Otherwise, create a new frame
-      const pointer = fabricCanvas.getPointer(opt.e);
+      const pos = stage.getPointerPosition();
+      if (!pos || !layer) return;
+      
       setIsCreatingFrame(true);
 
-      const startX = pointer.x;
-      const startY = pointer.y;
+      const startX = pos.x;
+      const startY = pos.y;
 
-      // Create a proper rectangle for the frame with correct fill color
-      const frameRect = new Rect({
-        left: startX,
-        top: startY,
+      // Create a proper rectangle for the frame
+      const frameRect = new Konva.Rect({
+        x: startX,
+        y: startY,
         width: 0,
         height: 0,
         fill: '#EDEDED',   // Frame fill color - light gray
         stroke: undefined, // No border
         strokeWidth: 0,    // No border
+        draggable: false,  // Temporary during creation
         selectable: false, // Temporary during creation
-        evented: true,     // Keep events enabled
         name: 'frame-rectangle',
       });
 
-      fabricCanvas.add(frameRect);
+      layer.add(frameRect);
       
       // Always keep frames at the back
-      fabricCanvas.sendObjectToBack(frameRect);
+      frameRect.moveToBottom();
       let isDrawing = true;
 
-      const onMouseMove = (opt: any) => {
+      const onMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
         if (!isDrawing) return;
-        const pointer = fabricCanvas.getPointer(opt.e);
+        const pos = stage.getPointerPosition();
+        if (!pos) return;
         
-        const width = Math.abs(pointer.x - startX);
-        const height = Math.abs(pointer.y - startY);
-        const left = Math.min(startX, pointer.x);
-        const top = Math.min(startY, pointer.y);
+        const width = Math.abs(pos.x - startX);
+        const height = Math.abs(pos.y - startY);
+        const x = Math.min(startX, pos.x);
+        const y = Math.min(startY, pos.y);
 
-        frameRect.set({ left, top, width, height });
-        fabricCanvas.renderAll();
+        frameRect.setAttrs({ x, y, width, height });
+        stage.draw();
       };
 
       const onMouseUp = () => {
         isDrawing = false;
         setIsCreatingFrame(false);
         
-        fabricCanvas.off('mouse:move', onMouseMove);
-        fabricCanvas.off('mouse:up', onMouseUp);
+        stage.off('mousemove', onMouseMove);
+        stage.off('mouseup', onMouseUp);
         
-        if ((frameRect.width || 0) > 10 && (frameRect.height || 0) > 10) {
+        if ((frameRect.width() || 0) > 10 && (frameRect.height() || 0) > 10) {
           console.log('Frame created successfully, making selectable');
           
           // Make frame selectable and ensure it stays at the back
-          frameRect.set({ 
-            selectable: true, 
-            evented: true,
+          frameRect.setAttrs({ 
+            draggable: true, 
+            selectable: true,
           });
           
           // Ensure frame stays at the back
-          fabricCanvas.sendObjectToBack(frameRect);
+          frameRect.moveToBottom();
           
           const newFrame: Frame = {
             id: Date.now().toString(),
-            x: frameRect.left || 0,
-            y: frameRect.top || 0,
-            width: frameRect.width || 0,
-            height: frameRect.height || 0,
+            x: frameRect.x(),
+            y: frameRect.y(),
+            width: frameRect.width(),
+            height: frameRect.height(),
           };
           setFrames(prev => [...prev, newFrame]);
         } else {
           console.log('Frame too small, removing');
-          fabricCanvas.remove(frameRect);
+          frameRect.destroy();
         }
         
-        fabricCanvas.renderAll();
+        stage.draw();
       };
 
-      fabricCanvas.on('mouse:move', onMouseMove);
-      fabricCanvas.on('mouse:up', onMouseUp);
+      stage.on('mousemove', onMouseMove);
+      stage.on('mouseup', onMouseUp);
     };
 
-    fabricCanvas.on('mouse:down', handleFrameInteraction);
+    stage.on('mousedown', handleFrameInteraction);
 
     return () => {
-      fabricCanvas.off('mouse:down', handleFrameInteraction);
+      stage.off('mousedown', handleFrameInteraction);
     };
-  }, [fabricCanvas, selectedTool, isCreatingFrame, setIsCreatingFrame, setFrames]);
+  }, [stageRef, selectedTool, isCreatingFrame, setIsCreatingFrame, setFrames]);
 };

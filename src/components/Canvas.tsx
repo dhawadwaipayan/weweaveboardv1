@@ -6,6 +6,8 @@ import { useSimpleToolSwitching } from '@/hooks/useSimpleToolSwitching';
 import { useObjectStateManager } from '@/hooks/useObjectStateManager';
 import { useTextTool } from '@/hooks/useTextTool';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
+import { useFrameTool } from '@/hooks/useFrameTool';
+import { useHandTool } from '@/hooks/useHandTool';
 
 interface CanvasProps {
   className?: string;
@@ -24,6 +26,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
     const layerRef = useRef<Konva.Layer>(null);
     const [stageSize, setStageSize] = useState({ width: window.innerWidth, height: window.innerHeight });
     const [selectedImageSrc, setSelectedImageSrc] = useState<string | null>(null);
+    const [isCreatingFrame, setIsCreatingFrame] = useState(false);
+    const [frames, setFrames] = useState<any[]>([]);
 
     // Initialize Konva stage
     const isInitialized = useCanvasInitialization(stageRef);
@@ -37,6 +41,21 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
     // Tool-specific handlers
     useTextTool(stageRef, selectedTool);
     useDeleteHandler(stageRef, selectedTool);
+    
+    // Frame tool integration
+    useFrameTool({
+      stageRef,
+      selectedTool,
+      isCreatingFrame,
+      setIsCreatingFrame,
+      setFrames
+    });
+    
+    // Hand tool integration
+    useHandTool({
+      stageRef,
+      selectedTool
+    });
 
     // Expose Konva stage and layer to parent
     useImperativeHandle(ref, () => ({
