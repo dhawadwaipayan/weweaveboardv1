@@ -36,17 +36,6 @@ export default async function handler(req, res) {
             ]
           }
         ],
-        tools: [
-          {
-            type: 'image_generation',
-            size: '1024x1024',
-            quality: 'high',
-            output_format: 'png',
-            background: 'transparent',
-            moderation: 'low'
-          }
-        ],
-        tool_choice: 'auto',
         temperature: 1,
         max_tokens: 2048,
         top_p: 1
