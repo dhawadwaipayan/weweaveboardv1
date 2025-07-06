@@ -5,6 +5,7 @@ import type { CanvasHandle } from './Canvas';
 import { callOpenAIGptImage } from '@/lib/openaiSketch';
 import { Image as FabricImage } from 'fabric';
 import * as fabric from 'fabric';
+import html2canvas from 'html2canvas';
 
 export interface ModePanelProps {
   canvasRef: React.RefObject<CanvasHandle>;
@@ -101,10 +102,11 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     const handleMouseDown = (opt: any) => {
       if (boundingBoxDrawing.current) return;
       boundingBoxDrawing.current = true;
-      const fabricCanvas = canvasRef.current.getFabricCanvas();
-      const pointer = fabricCanvas.getPointer(opt.e, true); // absolute canvas coordinates
+      const pointer = fabricCanvas.getPointer(opt.e);
       boundingBoxStart.current = { x: pointer.x, y: pointer.y };
+      // Remove any existing bounding box before creating new
       removeBoundingBoxesByName(fabricCanvas, 'sketch-bounding-box');
+      // Create a temp rect
       const rect = new fabric.Rect({
         left: pointer.x,
         top: pointer.y,
@@ -126,8 +128,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     };
     const handleMouseMove = (opt: any) => {
       if (!boundingBoxDrawing.current || !boundingBoxRef.current || !boundingBoxStart.current) return;
-      const fabricCanvas = canvasRef.current.getFabricCanvas();
-      const pointer = fabricCanvas.getPointer(opt.e, true); // absolute canvas coordinates
+      const pointer = fabricCanvas.getPointer(opt.e);
       const startX = boundingBoxStart.current.x;
       const startY = boundingBoxStart.current.y;
       const left = Math.min(startX, pointer.x);
@@ -231,6 +232,36 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     };
   }, [showSketchSubBar, canvasRef]);
 
+  // Helper: Capture bounding box area using html2canvas
+  async function captureBoundingBoxAsBase64(boundingBoxRef, containerSelector) {
+    const box = boundingBoxRef.current;
+    if (!box) throw new Error('No bounding box');
+    // Get DOM element for canvas container
+    const container = document.querySelector(containerSelector);
+    if (!container) throw new Error('Canvas container not found');
+    // Get bounding box coordinates in screen space
+    const rect = container.getBoundingClientRect();
+    const boxLeft = box.left * (box.scaleX ?? 1);
+    const boxTop = box.top * (box.scaleY ?? 1);
+    const boxWidth = box.width * (box.scaleX ?? 1);
+    const boxHeight = box.height * (box.scaleY ?? 1);
+    // Convert box coordinates to absolute screen coordinates
+    const absLeft = rect.left + boxLeft;
+    const absTop = rect.top + boxTop;
+    // Use html2canvas to capture the container
+    const canvas = await html2canvas(container, {useCORS: true, backgroundColor: null});
+    // Crop the canvas to the bounding box area
+    const ctx = canvas.getContext('2d');
+    const imageData = ctx.getImageData(boxLeft, boxTop, boxWidth, boxHeight);
+    // Create a new canvas for the cropped image
+    const croppedCanvas = document.createElement('canvas');
+    croppedCanvas.width = boxWidth;
+    croppedCanvas.height = boxHeight;
+    const croppedCtx = croppedCanvas.getContext('2d');
+    croppedCtx.putImageData(imageData, 0, 0);
+    return croppedCanvas.toDataURL('image/png');
+  }
+
   const handleSketchGenerate = async (details: string) => {
     setAiStatus('generating');
     setAiError(null);
@@ -248,28 +279,10 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       setAiStatus('idle');
       return;
     }
-    // Export the bounding box area as PNG, correcting for pan/zoom
+    // Export the bounding box area as PNG using html2canvas
     let base64Sketch = null;
     try {
-      const { left, top, width, height } = sketchBoundingBox;
-      const vt = fabricCanvas.viewportTransform;
-      const invVt = fabric.util.invertTransform(vt);
-      const topLeft = new fabric.Point(left, top);
-      const bottomRight = new fabric.Point(left + width, top + height);
-      const trueTopLeft = fabric.util.transformPoint(topLeft, invVt);
-      const trueBottomRight = fabric.util.transformPoint(bottomRight, invVt);
-      const exportLeft = trueTopLeft.x;
-      const exportTop = trueTopLeft.y;
-      const exportWidth = trueBottomRight.x - trueTopLeft.x;
-      const exportHeight = trueBottomRight.y - trueTopLeft.y;
-      base64Sketch = fabricCanvas.toDataURL({
-        format: 'png',
-        left: exportLeft,
-        top: exportTop,
-        width: exportWidth,
-        height: exportHeight,
-        multiplier: 1,
-      });
+      base64Sketch = await captureBoundingBoxAsBase64(boundingBoxRef, '.canvas-container');
       setLastInputImage(base64Sketch);
       // Auto-download the image for debugging
       if (base64Sketch) {
@@ -281,10 +294,24 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
         document.body.removeChild(link);
       }
     } catch (e) {
-      setAiStatus('idle');
-      alert('[Sketch AI] Bounding box export failed: ' + (e instanceof Error ? e.message : String(e)));
-      console.error('[Sketch AI] Bounding box export error:', e);
-      return;
+      // Fallback to Fabric.js export if html2canvas fails
+      try {
+        const { left, top, width, height } = sketchBoundingBox;
+        base64Sketch = fabricCanvas.toDataURL({
+          format: 'png',
+          left,
+          top,
+          width,
+          height,
+          multiplier: 1,
+        });
+        setLastInputImage(base64Sketch);
+      } catch (err) {
+        setAiStatus('idle');
+        alert('[Sketch AI] Bounding box export failed: ' + (err instanceof Error ? err.message : String(err)));
+        console.error('[Sketch AI] Bounding box export error:', err);
+        return;
+      }
     }
     if (!base64Sketch) {
       alert('Failed to export bounding box area for AI generation.');
@@ -355,6 +382,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
   };
 
   const handleRenderGenerate = async (details: string) => {
+    console.log('Render bounding box before export:', renderBoundingBox);
     setAiStatus('generating');
     setAiError(null);
     if (!canvasRef.current) {
@@ -371,28 +399,10 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       setAiStatus('idle');
       return;
     }
-    // Export the bounding box area as PNG, correcting for pan/zoom
+    // Export the bounding box area as PNG using html2canvas
     let base64Sketch = null;
     try {
-      const { left, top, width, height } = renderBoundingBox;
-      const vt = fabricCanvas.viewportTransform;
-      const invVt = fabric.util.invertTransform(vt);
-      const topLeft = new fabric.Point(left, top);
-      const bottomRight = new fabric.Point(left + width, top + height);
-      const trueTopLeft = fabric.util.transformPoint(topLeft, invVt);
-      const trueBottomRight = fabric.util.transformPoint(bottomRight, invVt);
-      const exportLeft = trueTopLeft.x;
-      const exportTop = trueTopLeft.y;
-      const exportWidth = trueBottomRight.x - trueTopLeft.x;
-      const exportHeight = trueBottomRight.y - trueTopLeft.y;
-      base64Sketch = fabricCanvas.toDataURL({
-        format: 'png',
-        left: exportLeft,
-        top: exportTop,
-        width: exportWidth,
-        height: exportHeight,
-        multiplier: 1,
-      });
+      base64Sketch = await captureBoundingBoxAsBase64(boundingBoxRef, '.canvas-container');
       setLastInputImage(base64Sketch);
       if (base64Sketch) {
         const link = document.createElement('a');
@@ -403,10 +413,24 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
         document.body.removeChild(link);
       }
     } catch (e) {
-      setAiStatus('idle');
-      alert('[Render AI] Bounding box export failed: ' + (e instanceof Error ? e.message : String(e)));
-      console.error('[Render AI] Bounding box export error:', e);
-      return;
+      // Fallback to Fabric.js export if html2canvas fails
+      try {
+        const { left, top, width, height } = renderBoundingBox;
+        base64Sketch = fabricCanvas.toDataURL({
+          format: 'png',
+          left,
+          top,
+          width,
+          height,
+          multiplier: 1,
+        });
+        setLastInputImage(base64Sketch);
+      } catch (err) {
+        setAiStatus('idle');
+        alert('[Render AI] Bounding box export failed: ' + (err instanceof Error ? err.message : String(err)));
+        console.error('[Render AI] Bounding box export error:', err);
+        return;
+      }
     }
     if (!base64Sketch) {
       alert('Failed to export bounding box area for AI generation.');
@@ -509,13 +533,14 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     fabricCanvas.discardActiveObject();
     fabricCanvas.renderAll();
     fabricCanvas.defaultCursor = 'crosshair';
-    const handleRenderMouseDown = (opt: any) => {
+    const handleMouseDown = (opt: any) => {
       if (boundingBoxDrawing.current) return;
       boundingBoxDrawing.current = true;
-      const fabricCanvas = canvasRef.current.getFabricCanvas();
-      const pointer = fabricCanvas.getPointer(opt.e, true); // absolute canvas coordinates
+      const pointer = fabricCanvas.getPointer(opt.e);
       boundingBoxStart.current = { x: pointer.x, y: pointer.y };
+      // Remove any existing bounding box before creating new
       removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
+      // Create a temp rect
       const rect = new fabric.Rect({
         left: pointer.x,
         top: pointer.y,
@@ -535,10 +560,9 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       fabricCanvas.add(rect);
       boundingBoxRef.current = rect;
     };
-    const handleRenderMouseMove = (opt: any) => {
+    const handleMouseMove = (opt: any) => {
       if (!boundingBoxDrawing.current || !boundingBoxRef.current || !boundingBoxStart.current) return;
-      const fabricCanvas = canvasRef.current.getFabricCanvas();
-      const pointer = fabricCanvas.getPointer(opt.e, true); // absolute canvas coordinates
+      const pointer = fabricCanvas.getPointer(opt.e);
       const startX = boundingBoxStart.current.x;
       const startY = boundingBoxStart.current.y;
       const left = Math.min(startX, pointer.x);
@@ -548,7 +572,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       boundingBoxRef.current.set({ left, top, width, height });
       fabricCanvas.renderAll();
     };
-    const handleRenderMouseUp = () => {
+    const handleMouseUp = () => {
       if (!boundingBoxDrawing.current || !boundingBoxRef.current) return;
       boundingBoxDrawing.current = false;
       boundingBoxStart.current = null;
@@ -594,38 +618,38 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
           height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
         });
       });
-      fabricCanvas.off('mouse:down', handleRenderMouseDown);
-      fabricCanvas.off('mouse:move', handleRenderMouseMove);
-      fabricCanvas.off('mouse:up', handleRenderMouseUp);
+      fabricCanvas.off('mouse:down', handleMouseDown);
+      fabricCanvas.off('mouse:move', handleMouseMove);
+      fabricCanvas.off('mouse:up', handleMouseUp);
       fabricCanvas.defaultCursor = 'default';
       if (onBoundingBoxCreated) onBoundingBoxCreated();
     };
-    fabricCanvas.on('mouse:down', handleRenderMouseDown);
-    fabricCanvas.on('mouse:move', handleRenderMouseMove);
-    fabricCanvas.on('mouse:up', handleRenderMouseUp);
+    fabricCanvas.on('mouse:down', handleMouseDown);
+    fabricCanvas.on('mouse:move', handleMouseMove);
+    fabricCanvas.on('mouse:up', handleMouseUp);
     // Listen for image add/remove/clear and remove bounding box
-    const handleRenderObjectAdded = (e) => {
+    const handleObjectAdded = (e) => {
       if (e.target && e.target.type === 'image') {
         removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
         boundingBoxRef.current = null;
         setRenderBoundingBox(null);
       }
     };
-    const handleRenderObjectRemoved = (e) => {
+    const handleObjectRemoved = (e) => {
       if (e.target && e.target.type === 'image') {
         removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
         boundingBoxRef.current = null;
         setRenderBoundingBox(null);
       }
     };
-    fabricCanvas.on('object:added', handleRenderObjectAdded);
-    fabricCanvas.on('object:removed', handleRenderObjectRemoved);
+    fabricCanvas.on('object:added', handleObjectAdded);
+    fabricCanvas.on('object:removed', handleObjectRemoved);
     return () => {
-      fabricCanvas.off('mouse:down', handleRenderMouseDown);
-      fabricCanvas.off('mouse:move', handleRenderMouseMove);
-      fabricCanvas.off('mouse:up', handleRenderMouseUp);
-      fabricCanvas.off('object:added', handleRenderObjectAdded);
-      fabricCanvas.off('object:removed', handleRenderObjectRemoved);
+      fabricCanvas.off('mouse:down', handleMouseDown);
+      fabricCanvas.off('mouse:move', handleMouseMove);
+      fabricCanvas.off('mouse:up', handleMouseUp);
+      fabricCanvas.off('object:added', handleObjectAdded);
+      fabricCanvas.off('object:removed', handleObjectRemoved);
       fabricCanvas.defaultCursor = 'default';
       removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
       boundingBoxRef.current = null;
