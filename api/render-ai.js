@@ -1,5 +1,3 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-
 export default async function handler(req, res) {
   console.log('Render AI function called with method:', req.method);
   if (req.method !== 'POST') {
