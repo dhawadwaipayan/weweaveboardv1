@@ -248,16 +248,26 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       setAiStatus('idle');
       return;
     }
-    // Export the bounding box area as PNG
+    // Export the bounding box area as PNG, correcting for pan/zoom
     let base64Sketch = null;
     try {
       const { left, top, width, height } = sketchBoundingBox;
+      const vt = fabricCanvas.viewportTransform;
+      const invVt = fabric.util.invertTransform(vt);
+      const topLeft = new fabric.Point(left, top);
+      const bottomRight = new fabric.Point(left + width, top + height);
+      const trueTopLeft = fabric.util.transformPoint(topLeft, invVt);
+      const trueBottomRight = fabric.util.transformPoint(bottomRight, invVt);
+      const exportLeft = trueTopLeft.x;
+      const exportTop = trueTopLeft.y;
+      const exportWidth = trueBottomRight.x - trueTopLeft.x;
+      const exportHeight = trueBottomRight.y - trueTopLeft.y;
       base64Sketch = fabricCanvas.toDataURL({
         format: 'png',
-        left,
-        top,
-        width,
-        height,
+        left: exportLeft,
+        top: exportTop,
+        width: exportWidth,
+        height: exportHeight,
         multiplier: 1,
       });
       setLastInputImage(base64Sketch);
@@ -345,7 +355,6 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
   };
 
   const handleRenderGenerate = async (details: string) => {
-    console.log('Render bounding box before export:', renderBoundingBox);
     setAiStatus('generating');
     setAiError(null);
     if (!canvasRef.current) {
@@ -362,16 +371,26 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       setAiStatus('idle');
       return;
     }
-    // Export the bounding box area as PNG
+    // Export the bounding box area as PNG, correcting for pan/zoom
     let base64Sketch = null;
     try {
       const { left, top, width, height } = renderBoundingBox;
+      const vt = fabricCanvas.viewportTransform;
+      const invVt = fabric.util.invertTransform(vt);
+      const topLeft = new fabric.Point(left, top);
+      const bottomRight = new fabric.Point(left + width, top + height);
+      const trueTopLeft = fabric.util.transformPoint(topLeft, invVt);
+      const trueBottomRight = fabric.util.transformPoint(bottomRight, invVt);
+      const exportLeft = trueTopLeft.x;
+      const exportTop = trueTopLeft.y;
+      const exportWidth = trueBottomRight.x - trueTopLeft.x;
+      const exportHeight = trueBottomRight.y - trueTopLeft.y;
       base64Sketch = fabricCanvas.toDataURL({
         format: 'png',
-        left,
-        top,
-        width,
-        height,
+        left: exportLeft,
+        top: exportTop,
+        width: exportWidth,
+        height: exportHeight,
         multiplier: 1,
       });
       setLastInputImage(base64Sketch);
