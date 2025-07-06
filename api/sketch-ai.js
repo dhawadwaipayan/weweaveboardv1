@@ -5,12 +5,12 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { base64Image, promptText } = req.body || {};
+  const { base64Sketch, base64Material, promptText } = req.body || {};
   const apiKey = process.env.OPENAI_API_KEY;
   
-  if (!base64Image || !promptText) {
-    console.log('Missing required fields:', { base64Image: !!base64Image, promptText: !!promptText });
-    return res.status(400).json({ error: 'Missing base64Image or promptText' });
+  if (!base64Sketch || !promptText) {
+    console.log('Missing required fields:', { base64Sketch: !!base64Sketch, promptText: !!promptText });
+    return res.status(400).json({ error: 'Missing base64Sketch or promptText' });
   }
   if (!apiKey) {
     console.log('Missing OPENAI_API_KEY in environment variables');
@@ -19,6 +19,13 @@ export default async function handler(req, res) {
 
   try {
     console.log('Making OpenAI API request...');
+    const contentArr = [
+      { type: 'text', text: promptText },
+      { type: 'image_url', image_url: { url: base64Sketch } }
+    ];
+    if (base64Material) {
+      contentArr.push({ type: 'image_url', image_url: { url: base64Material } });
+    }
     const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -30,10 +37,7 @@ export default async function handler(req, res) {
         messages: [
           {
             role: 'user',
-            content: [
-              { type: 'text', text: promptText },
-              { type: 'image_url', image_url: { url: base64Image } }
-            ]
+            content: contentArr
           }
         ],
         temperature: 1,
