@@ -306,15 +306,253 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     if (setSelectedMode) setSelectedMode(''); // Reset to non-clicked state
   };
 
-  const handleRenderGenerate = (details: string) => {
-    console.log('Render generating with details:', details);
-    // Add your render generation logic here
+  const handleRenderGenerate = async (details: string) => {
+    setAiStatus('generating');
+    setAiError(null);
+    if (!canvasRef.current) {
+      console.error('No canvas ref available');
+      return;
+    }
+    const fabricCanvas = canvasRef.current.getFabricCanvas();
+    if (!fabricCanvas) {
+      console.error('No fabric canvas instance');
+      return;
+    }
+    if (!renderBoundingBox) {
+      alert('No bounding box defined for export.');
+      setAiStatus('idle');
+      return;
+    }
+    // Export the bounding box area as PNG
+    let base64Image = null;
+    try {
+      const { left, top, width, height } = renderBoundingBox;
+      base64Image = fabricCanvas.toDataURL({
+        format: 'png',
+        left,
+        top,
+        width,
+        height,
+        multiplier: 1,
+      });
+      setLastInputImage(base64Image);
+      if (base64Image) {
+        const link = document.createElement('a');
+        link.href = base64Image;
+        link.download = 'openai-input.png';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } catch (e) {
+      setAiStatus('idle');
+      alert('[Render AI] Bounding box export failed: ' + (e instanceof Error ? e.message : String(e)));
+      console.error('[Render AI] Bounding box export error:', e);
+      return;
+    }
+    if (!base64Image) {
+      alert('Failed to export bounding box area for AI generation.');
+      setAiStatus('idle');
+      return;
+    }
+    // Use attached material if present, else use a pure white PNG
+    let materialImage = renderMaterial;
+    if (!materialImage) {
+      // Create a 1024x1024 white PNG as fallback
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024;
+      canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, 1024, 1024);
+      materialImage = canvas.toDataURL('image/png');
+    }
+    // Prompt for render
+    const promptText = `Now, use attached material to turn the sketch into a realistic representation with a transparent background. All the topstitches and buttons will be of same color. In case any prompt is given on the image or as an chat input, include those changes as well. ${details}`.trim();
+    try {
+      const result = await callOpenAIGptImage({
+        base64Image: materialImage,
+        promptText
+      });
+      console.log('[Render AI] OpenAI API full response:', result);
+      let base64 = null;
+      if (result && Array.isArray(result.output)) {
+        const imageOutput = result.output.find(
+          (item) => item.type === 'image_generation_call' && item.result
+        );
+        if (imageOutput) {
+          base64 = imageOutput.result;
+        }
+      }
+      if (!base64) {
+        setAiStatus('error');
+        setAiError('No image returned from OpenAI.');
+        setTimeout(() => setAiStatus('idle'), 4000);
+        alert('No image returned from OpenAI.');
+        return;
+      }
+      const imageUrl = `data:image/png;base64,${base64}`;
+      let x = renderBoundingBox.left + renderBoundingBox.width + 40;
+      let y = renderBoundingBox.top;
+      const finalImgObj = await FabricImage.fromURL(imageUrl);
+      finalImgObj.set({
+        left: x,
+        top: y,
+        scaleX: 0.5,
+        scaleY: 0.5,
+        selectable: true,
+        evented: true
+      });
+      fabricCanvas.add(finalImgObj);
+      fabricCanvas.renderAll();
+      setAiStatus('success');
+      setTimeout(() => setAiStatus('idle'), 2000);
+    } catch (err) {
+      setAiStatus('error');
+      setAiError(err instanceof Error ? err.message : String(err));
+      setTimeout(() => setAiStatus('idle'), 4000);
+      alert('[Render AI] Error: ' + (err instanceof Error ? err.message : String(err)));
+      console.error('[Render AI] Error:', err);
+    }
+    if (onBoundingBoxCreated) onBoundingBoxCreated();
+  };
+
+  const handleRenderMaterial = (base64: string | null) => {
+    setRenderMaterial(base64);
   };
 
   const handleAddMaterial = () => {
     console.log('Add material clicked');
     // Add your add material logic here
   };
+
+  // 1. Add state for renderBoundingBox and renderMaterial
+  const [renderBoundingBox, setRenderBoundingBox] = useState<{ left: number, top: number, width: number, height: number } | null>(null);
+  const [renderMaterial, setRenderMaterial] = useState<string | null>(null); // base64
+
+  // 2. Bounding box logic for Render mode (copy of Sketch, but for Render)
+  useEffect(() => {
+    if (!showRenderSubBar || !canvasRef.current) return;
+    const fabricCanvas = canvasRef.current.getFabricCanvas();
+    if (!fabricCanvas) return;
+    if (boundingBoxRef.current) {
+      fabricCanvas.remove(boundingBoxRef.current);
+      boundingBoxRef.current = null;
+      setRenderBoundingBox(null);
+    }
+    fabricCanvas.forEachObject(obj => {
+      obj.selectable = false;
+      obj.evented = false;
+    });
+    fabricCanvas.selection = false;
+    fabricCanvas.skipTargetFind = true;
+    fabricCanvas.discardActiveObject();
+    fabricCanvas.renderAll();
+    fabricCanvas.defaultCursor = 'crosshair';
+    const handleMouseDown = (opt: any) => {
+      if (boundingBoxDrawing.current) return;
+      boundingBoxDrawing.current = true;
+      const pointer = fabricCanvas.getPointer(opt.e);
+      boundingBoxStart.current = { x: pointer.x, y: pointer.y };
+      const rect = new fabric.Rect({
+        left: pointer.x,
+        top: pointer.y,
+        width: 1,
+        height: 1,
+        fill: 'rgba(0,0,0,0.0)',
+        stroke: '#E1FF00',
+        strokeWidth: 2,
+        selectable: false,
+        hasBorders: false,
+        hasControls: false,
+        lockRotation: true,
+        objectCaching: false,
+        name: 'render-bounding-box',
+        evented: false,
+      });
+      fabricCanvas.add(rect);
+      boundingBoxRef.current = rect;
+    };
+    const handleMouseMove = (opt: any) => {
+      if (!boundingBoxDrawing.current || !boundingBoxRef.current || !boundingBoxStart.current) return;
+      const pointer = fabricCanvas.getPointer(opt.e);
+      const startX = boundingBoxStart.current.x;
+      const startY = boundingBoxStart.current.y;
+      const left = Math.min(startX, pointer.x);
+      const top = Math.min(startY, pointer.y);
+      const width = Math.abs(pointer.x - startX);
+      const height = Math.abs(pointer.y - startY);
+      boundingBoxRef.current.set({ left, top, width, height });
+      fabricCanvas.renderAll();
+    };
+    const handleMouseUp = () => {
+      if (!boundingBoxDrawing.current || !boundingBoxRef.current) return;
+      boundingBoxDrawing.current = false;
+      boundingBoxStart.current = null;
+      boundingBoxRef.current.set({
+        selectable: true,
+        hasBorders: true,
+        hasControls: true,
+        evented: true,
+      });
+      boundingBoxRef.current.setControlsVisibility({ mtr: false });
+      fabricCanvas.setActiveObject(boundingBoxRef.current);
+      setRenderBoundingBox({
+        left: boundingBoxRef.current.left ?? 0,
+        top: boundingBoxRef.current.top ?? 0,
+        width: boundingBoxRef.current.width! * (boundingBoxRef.current.scaleX ?? 1),
+        height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
+      });
+      fabricCanvas.forEachObject(obj => { obj.evented = true; });
+      fabricCanvas.selection = true;
+      fabricCanvas.skipTargetFind = false;
+      fabricCanvas.renderAll();
+      boundingBoxRef.current.on('modified', () => {
+        setRenderBoundingBox({
+          left: boundingBoxRef.current.left ?? 0,
+          top: boundingBoxRef.current.top ?? 0,
+          width: boundingBoxRef.current.width! * (boundingBoxRef.current.scaleX ?? 1),
+          height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
+        });
+      });
+      boundingBoxRef.current.on('moving', () => {
+        setRenderBoundingBox({
+          left: boundingBoxRef.current.left ?? 0,
+          top: boundingBoxRef.current.top ?? 0,
+          width: boundingBoxRef.current.width! * (boundingBoxRef.current.scaleX ?? 1),
+          height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
+        });
+      });
+      boundingBoxRef.current.on('scaling', () => {
+        setRenderBoundingBox({
+          left: boundingBoxRef.current.left ?? 0,
+          top: boundingBoxRef.current.top ?? 0,
+          width: boundingBoxRef.current.width! * (boundingBoxRef.current.scaleX ?? 1),
+          height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
+        });
+      });
+      fabricCanvas.off('mouse:down', handleMouseDown);
+      fabricCanvas.off('mouse:move', handleMouseMove);
+      fabricCanvas.off('mouse:up', handleMouseUp);
+      fabricCanvas.defaultCursor = 'default';
+      if (onBoundingBoxCreated) onBoundingBoxCreated();
+    };
+    fabricCanvas.on('mouse:down', handleMouseDown);
+    fabricCanvas.on('mouse:move', handleMouseMove);
+    fabricCanvas.on('mouse:up', handleMouseUp);
+    return () => {
+      fabricCanvas.off('mouse:down', handleMouseDown);
+      fabricCanvas.off('mouse:move', handleMouseMove);
+      fabricCanvas.off('mouse:up', handleMouseUp);
+      fabricCanvas.defaultCursor = 'default';
+      if (boundingBoxRef.current) {
+        fabricCanvas.remove(boundingBoxRef.current);
+        boundingBoxRef.current = null;
+      }
+      setRenderBoundingBox(null);
+    };
+  }, [showRenderSubBar, canvasRef]);
+
   return (
     <div className="flex flex-col items-center">
       {/* AI Status Indicator */}
@@ -338,6 +576,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
           onCancel={handleRenderCancel}
           onGenerate={handleRenderGenerate}
           onAddMaterial={handleAddMaterial}
+          onMaterialChange={handleRenderMaterial}
         />
       )}
       <div style={{

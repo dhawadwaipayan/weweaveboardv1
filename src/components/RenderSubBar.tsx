@@ -4,12 +4,14 @@ interface RenderSubBarProps {
   onCancel: () => void;
   onGenerate: (details: string) => void;
   onAddMaterial: () => void;
+  onMaterialChange?: (base64: string | null) => void;
 }
 
 export const RenderSubBar: React.FC<RenderSubBarProps> = ({
   onCancel,
   onGenerate,
-  onAddMaterial
+  onAddMaterial,
+  onMaterialChange
 }) => {
   const [additionalDetails, setAdditionalDetails] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -28,11 +30,19 @@ export const RenderSubBar: React.FC<RenderSubBarProps> = ({
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && file.type.startsWith('image/')) {
       const imageUrl = URL.createObjectURL(file);
       setSelectedImage(imageUrl);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (onMaterialChange) onMaterialChange(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setSelectedImage(null);
+      if (onMaterialChange) onMaterialChange(null);
     }
   };
 
