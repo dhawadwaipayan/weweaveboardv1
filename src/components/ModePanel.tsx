@@ -232,7 +232,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     };
   }, [showSketchSubBar, canvasRef]);
 
-  // Helper: Capture bounding box area using html2canvas (with debug logging and devicePixelRatio fix)
+  // Helper: Capture bounding box area using html2canvas (canvas-pixel-space only)
   async function captureBoundingBoxAsBase64(boundingBoxRef, canvasRef) {
     const box = boundingBoxRef.current;
     if (!box) throw new Error('No bounding box');
@@ -240,35 +240,29 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     const fabricCanvas = canvasRef.current?.getFabricCanvas();
     const lowerCanvasEl = fabricCanvas?.lowerCanvasEl;
     if (!lowerCanvasEl) throw new Error('Fabric canvas element not found');
-    // Get DOM rect and scale factor
-    const domRect = lowerCanvasEl.getBoundingClientRect();
+    // Get scale factor and devicePixelRatio
     const fabricWidth = fabricCanvas.getWidth();
     const fabricHeight = fabricCanvas.getHeight();
-    const domWidth = domRect.width;
-    const domHeight = domRect.height;
-    const scaleX = domWidth / fabricWidth;
-    const scaleY = domHeight / fabricHeight;
     const dpr = window.devicePixelRatio || 1;
     // Get bounding box in Fabric canvas coordinates
     const boxLeft = box.left * (box.scaleX ?? 1);
     const boxTop = box.top * (box.scaleY ?? 1);
     const boxWidth = box.width * (box.scaleX ?? 1);
     const boxHeight = box.height * (box.scaleY ?? 1);
-    // Convert to DOM coordinates
-    const cropLeft = Math.round(boxLeft * scaleX * dpr);
-    const cropTop = Math.round(boxTop * scaleY * dpr);
-    const cropWidth = Math.round(boxWidth * scaleX * dpr);
-    const cropHeight = Math.round(boxHeight * scaleY * dpr);
+    // Scale to canvas pixel space (not CSS size)
+    const cropLeft = Math.round(boxLeft * dpr);
+    const cropTop = Math.round(boxTop * dpr);
+    const cropWidth = Math.round(boxWidth * dpr);
+    const cropHeight = Math.round(boxHeight * dpr);
     // Debug logging
-    console.log('[html2canvas export]');
+    console.log('[html2canvas export - canvas pixel space]');
     console.log('Fabric canvas size:', fabricWidth, fabricHeight);
-    console.log('DOM canvas size:', domWidth, domHeight);
     console.log('devicePixelRatio:', dpr);
     console.log('Bounding box (fabric):', boxLeft, boxTop, boxWidth, boxHeight);
-    console.log('Bounding box (DOM px):', cropLeft, cropTop, cropWidth, cropHeight);
+    console.log('Bounding box (canvas px):', cropLeft, cropTop, cropWidth, cropHeight);
     // Use html2canvas to capture the canvas element
     const canvas = await html2canvas(lowerCanvasEl, {useCORS: true, backgroundColor: null, scale: dpr});
-    // Optionally, draw a debug rectangle on the screenshot
+    // Draw a debug rectangle on the screenshot
     const ctx = canvas.getContext('2d');
     ctx.save();
     ctx.strokeStyle = 'red';
