@@ -232,7 +232,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     };
   }, [showSketchSubBar, canvasRef]);
 
-  // Helper: Capture bounding box area using html2canvas (DOM-corrected)
+  // Helper: Capture bounding box area using html2canvas (with debug logging and devicePixelRatio fix)
   async function captureBoundingBoxAsBase64(boundingBoxRef, canvasRef) {
     const box = boundingBoxRef.current;
     if (!box) throw new Error('No bounding box');
@@ -248,25 +248,39 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     const domHeight = domRect.height;
     const scaleX = domWidth / fabricWidth;
     const scaleY = domHeight / fabricHeight;
+    const dpr = window.devicePixelRatio || 1;
     // Get bounding box in Fabric canvas coordinates
     const boxLeft = box.left * (box.scaleX ?? 1);
     const boxTop = box.top * (box.scaleY ?? 1);
     const boxWidth = box.width * (box.scaleX ?? 1);
     const boxHeight = box.height * (box.scaleY ?? 1);
     // Convert to DOM coordinates
-    const cropLeft = domRect.left + boxLeft * scaleX;
-    const cropTop = domRect.top + boxTop * scaleY;
-    const cropWidth = boxWidth * scaleX;
-    const cropHeight = boxHeight * scaleY;
-    // Use html2canvas to capture the canvas container
-    const canvas = await html2canvas(lowerCanvasEl, {useCORS: true, backgroundColor: null});
-    // Crop the canvas to the bounding box area
+    const cropLeft = Math.round(boxLeft * scaleX * dpr);
+    const cropTop = Math.round(boxTop * scaleY * dpr);
+    const cropWidth = Math.round(boxWidth * scaleX * dpr);
+    const cropHeight = Math.round(boxHeight * scaleY * dpr);
+    // Debug logging
+    console.log('[html2canvas export]');
+    console.log('Fabric canvas size:', fabricWidth, fabricHeight);
+    console.log('DOM canvas size:', domWidth, domHeight);
+    console.log('devicePixelRatio:', dpr);
+    console.log('Bounding box (fabric):', boxLeft, boxTop, boxWidth, boxHeight);
+    console.log('Bounding box (DOM px):', cropLeft, cropTop, cropWidth, cropHeight);
+    // Use html2canvas to capture the canvas element
+    const canvas = await html2canvas(lowerCanvasEl, {useCORS: true, backgroundColor: null, scale: dpr});
+    // Optionally, draw a debug rectangle on the screenshot
     const ctx = canvas.getContext('2d');
+    ctx.save();
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(cropLeft, cropTop, cropWidth, cropHeight);
+    ctx.restore();
+    // Crop the canvas to the bounding box area
     // Clamp crop area to canvas bounds
-    const sx = Math.max(0, Math.round(boxLeft * scaleX));
-    const sy = Math.max(0, Math.round(boxTop * scaleY));
-    const sw = Math.min(Math.round(cropWidth), canvas.width - sx);
-    const sh = Math.min(Math.round(cropHeight), canvas.height - sy);
+    const sx = Math.max(0, cropLeft);
+    const sy = Math.max(0, cropTop);
+    const sw = Math.min(cropWidth, canvas.width - sx);
+    const sh = Math.min(cropHeight, canvas.height - sy);
     const imageData = ctx.getImageData(sx, sy, sw, sh);
     // Create a new canvas for the cropped image
     const croppedCanvas = document.createElement('canvas');
