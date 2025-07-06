@@ -101,14 +101,15 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     const handleMouseDown = (opt: any) => {
       if (boundingBoxDrawing.current) return;
       boundingBoxDrawing.current = true;
+      const vt = fabricCanvas.viewportTransform;
+      const invVt = fabric.util.invertTransform(vt);
       const pointer = fabricCanvas.getPointer(opt.e);
-      boundingBoxStart.current = { x: pointer.x, y: pointer.y };
-      // Remove any existing bounding box before creating new
+      const canvasPoint = fabric.util.transformPoint(new fabric.Point(pointer.x, pointer.y), invVt);
+      boundingBoxStart.current = { x: canvasPoint.x, y: canvasPoint.y };
       removeBoundingBoxesByName(fabricCanvas, 'sketch-bounding-box');
-      // Create a temp rect
       const rect = new fabric.Rect({
-        left: pointer.x,
-        top: pointer.y,
+        left: canvasPoint.x,
+        top: canvasPoint.y,
         width: 1,
         height: 1,
         fill: 'rgba(0,0,0,0.0)',
@@ -127,13 +128,17 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     };
     const handleMouseMove = (opt: any) => {
       if (!boundingBoxDrawing.current || !boundingBoxRef.current || !boundingBoxStart.current) return;
+      const fabricCanvas = canvasRef.current.getFabricCanvas();
+      const vt = fabricCanvas.viewportTransform;
+      const invVt = fabric.util.invertTransform(vt);
       const pointer = fabricCanvas.getPointer(opt.e);
+      const canvasPoint = fabric.util.transformPoint(new fabric.Point(pointer.x, pointer.y), invVt);
       const startX = boundingBoxStart.current.x;
       const startY = boundingBoxStart.current.y;
-      const left = Math.min(startX, pointer.x);
-      const top = Math.min(startY, pointer.y);
-      const width = Math.abs(pointer.x - startX);
-      const height = Math.abs(pointer.y - startY);
+      const left = Math.min(startX, canvasPoint.x);
+      const top = Math.min(startY, canvasPoint.y);
+      const width = Math.abs(canvasPoint.x - startX);
+      const height = Math.abs(canvasPoint.y - startY);
       boundingBoxRef.current.set({ left, top, width, height });
       fabricCanvas.renderAll();
     };
@@ -509,17 +514,18 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     fabricCanvas.discardActiveObject();
     fabricCanvas.renderAll();
     fabricCanvas.defaultCursor = 'crosshair';
-    const handleMouseDown = (opt: any) => {
+    const handleRenderMouseDown = (opt: any) => {
       if (boundingBoxDrawing.current) return;
       boundingBoxDrawing.current = true;
+      const vt = fabricCanvas.viewportTransform;
+      const invVt = fabric.util.invertTransform(vt);
       const pointer = fabricCanvas.getPointer(opt.e);
-      boundingBoxStart.current = { x: pointer.x, y: pointer.y };
-      // Remove any existing bounding box before creating new
+      const canvasPoint = fabric.util.transformPoint(new fabric.Point(pointer.x, pointer.y), invVt);
+      boundingBoxStart.current = { x: canvasPoint.x, y: canvasPoint.y };
       removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
-      // Create a temp rect
       const rect = new fabric.Rect({
-        left: pointer.x,
-        top: pointer.y,
+        left: canvasPoint.x,
+        top: canvasPoint.y,
         width: 1,
         height: 1,
         fill: 'rgba(0,0,0,0.0)',
@@ -536,19 +542,23 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       fabricCanvas.add(rect);
       boundingBoxRef.current = rect;
     };
-    const handleMouseMove = (opt: any) => {
+    const handleRenderMouseMove = (opt: any) => {
       if (!boundingBoxDrawing.current || !boundingBoxRef.current || !boundingBoxStart.current) return;
+      const fabricCanvas = canvasRef.current.getFabricCanvas();
+      const vt = fabricCanvas.viewportTransform;
+      const invVt = fabric.util.invertTransform(vt);
       const pointer = fabricCanvas.getPointer(opt.e);
+      const canvasPoint = fabric.util.transformPoint(new fabric.Point(pointer.x, pointer.y), invVt);
       const startX = boundingBoxStart.current.x;
       const startY = boundingBoxStart.current.y;
-      const left = Math.min(startX, pointer.x);
-      const top = Math.min(startY, pointer.y);
-      const width = Math.abs(pointer.x - startX);
-      const height = Math.abs(pointer.y - startY);
+      const left = Math.min(startX, canvasPoint.x);
+      const top = Math.min(startY, canvasPoint.y);
+      const width = Math.abs(canvasPoint.x - startX);
+      const height = Math.abs(canvasPoint.y - startY);
       boundingBoxRef.current.set({ left, top, width, height });
       fabricCanvas.renderAll();
     };
-    const handleMouseUp = () => {
+    const handleRenderMouseUp = () => {
       if (!boundingBoxDrawing.current || !boundingBoxRef.current) return;
       boundingBoxDrawing.current = false;
       boundingBoxStart.current = null;
@@ -594,38 +604,38 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
           height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
         });
       });
-      fabricCanvas.off('mouse:down', handleMouseDown);
-      fabricCanvas.off('mouse:move', handleMouseMove);
-      fabricCanvas.off('mouse:up', handleMouseUp);
+      fabricCanvas.off('mouse:down', handleRenderMouseDown);
+      fabricCanvas.off('mouse:move', handleRenderMouseMove);
+      fabricCanvas.off('mouse:up', handleRenderMouseUp);
       fabricCanvas.defaultCursor = 'default';
       if (onBoundingBoxCreated) onBoundingBoxCreated();
     };
-    fabricCanvas.on('mouse:down', handleMouseDown);
-    fabricCanvas.on('mouse:move', handleMouseMove);
-    fabricCanvas.on('mouse:up', handleMouseUp);
+    fabricCanvas.on('mouse:down', handleRenderMouseDown);
+    fabricCanvas.on('mouse:move', handleRenderMouseMove);
+    fabricCanvas.on('mouse:up', handleRenderMouseUp);
     // Listen for image add/remove/clear and remove bounding box
-    const handleObjectAdded = (e) => {
+    const handleRenderObjectAdded = (e) => {
       if (e.target && e.target.type === 'image') {
         removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
         boundingBoxRef.current = null;
         setRenderBoundingBox(null);
       }
     };
-    const handleObjectRemoved = (e) => {
+    const handleRenderObjectRemoved = (e) => {
       if (e.target && e.target.type === 'image') {
         removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
         boundingBoxRef.current = null;
         setRenderBoundingBox(null);
       }
     };
-    fabricCanvas.on('object:added', handleObjectAdded);
-    fabricCanvas.on('object:removed', handleObjectRemoved);
+    fabricCanvas.on('object:added', handleRenderObjectAdded);
+    fabricCanvas.on('object:removed', handleRenderObjectRemoved);
     return () => {
-      fabricCanvas.off('mouse:down', handleMouseDown);
-      fabricCanvas.off('mouse:move', handleMouseMove);
-      fabricCanvas.off('mouse:up', handleMouseUp);
-      fabricCanvas.off('object:added', handleObjectAdded);
-      fabricCanvas.off('object:removed', handleObjectRemoved);
+      fabricCanvas.off('mouse:down', handleRenderMouseDown);
+      fabricCanvas.off('mouse:move', handleRenderMouseMove);
+      fabricCanvas.off('mouse:up', handleRenderMouseUp);
+      fabricCanvas.off('object:added', handleRenderObjectAdded);
+      fabricCanvas.off('object:removed', handleRenderObjectRemoved);
       fabricCanvas.defaultCursor = 'default';
       removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
       boundingBoxRef.current = null;
