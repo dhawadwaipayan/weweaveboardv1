@@ -3,13 +3,15 @@
 export async function callOpenAIGptImage({
   base64Sketch,
   base64Material,
-  promptText
+  promptText,
+  endpoint = "/api/sketch-ai"
 }: {
   base64Sketch: string,
   base64Material?: string,
-  promptText: string
+  promptText: string,
+  endpoint?: string
 }) {
-  console.log('[callOpenAIGptImage] Preparing to call /api/sketch-ai', {
+  console.log('[callOpenAIGptImage] Preparing to call', endpoint, {
     base64SketchDefined: typeof base64Sketch !== 'undefined',
     base64SketchLength: base64Sketch ? base64Sketch.length : 0,
     base64MaterialDefined: typeof base64Material !== 'undefined',
@@ -21,7 +23,7 @@ export async function callOpenAIGptImage({
   }
   let response;
   try {
-    response = await fetch("/api/sketch-ai", {
+    response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
