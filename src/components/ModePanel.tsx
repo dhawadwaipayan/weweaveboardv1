@@ -369,7 +369,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       base64Material = canvas.toDataURL('image/png');
     }
     // Prompt for render
-    const promptText = `Generate an image by useing the attached material to turn the sketch into a realistic representation with a transparent background. All the topstitches and buttons will be of the same colour. In case any prompt is given on the image or as a chat input, include those changes as well. ${details}`.trim();
+    const promptText = `Generate an image by using the attached material to turn the sketch into a realistic representation with a transparent background. All the topstitches and buttons will be of the same colour. In case any prompt is given on the image or as an additional input, include those changes as well. ${details}`.trim();
     try {
       const result = await callOpenAIGptImage({
         base64Sketch,
