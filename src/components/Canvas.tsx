@@ -3,6 +3,9 @@ import { Stage, Layer, Rect, Image as KonvaImage } from 'react-konva';
 import Konva from 'konva';
 import { useCanvasInitialization } from '@/hooks/useCanvasInitialization';
 import { useSimpleToolSwitching } from '@/hooks/useSimpleToolSwitching';
+import { useObjectStateManager } from '@/hooks/useObjectStateManager';
+import { useTextTool } from '@/hooks/useTextTool';
+import { useDeleteHandler } from '@/hooks/useDeleteHandler';
 
 interface CanvasProps {
   className?: string;
@@ -27,6 +30,13 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
     
     // Tool switching
     useSimpleToolSwitching(stageRef, selectedTool);
+    
+    // Object state management
+    useObjectStateManager(stageRef, selectedTool);
+    
+    // Tool-specific handlers
+    useTextTool(stageRef, selectedTool);
+    useDeleteHandler(stageRef, selectedTool);
 
     // Expose Konva stage and layer to parent
     useImperativeHandle(ref, () => ({

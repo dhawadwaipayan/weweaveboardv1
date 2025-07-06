@@ -1,14 +1,14 @@
 import { useEffect } from 'react';
-import { Canvas as FabricCanvas } from 'fabric';
+import Konva from 'konva';
 
 export const useObjectStateManager = (
-  fabricCanvas: FabricCanvas | null,
+  stageRef: React.RefObject<Konva.Stage>,
   selectedTool: string
 ) => {
   useEffect(() => {
-    if (!fabricCanvas) return;
+    if (!stageRef.current) return;
 
-    // FREEZE: Skip everything during drawing mode - let Fabric.js handle it natively
+    // FREEZE: Skip everything during drawing mode - let Konva handle it natively
     if (selectedTool === 'draw') {
       console.log('ObjectStateManager: Frozen during drawing mode');
       return;
@@ -18,27 +18,37 @@ export const useObjectStateManager = (
     const updateObjectSelectability = () => {
       console.log('Updating object selectability for tool:', selectedTool);
       
-      fabricCanvas.forEachObject((obj) => {
-        if (selectedTool === 'select') {
-          // In select mode, all objects should be selectable
-          obj.selectable = true;
-        } else if (selectedTool === 'hand') {
-          // In hand mode, disable object selection to prevent conflicts with panning
-          obj.selectable = false;
-        } else if (selectedTool === 'frame') {
-          // In frame mode, no object should be selectable (not even frames)
-          obj.selectable = false;
-        } else {
-          // For other tools (text, etc.), disable selection temporarily
-          obj.selectable = false;
-        }
+      const stage = stageRef.current;
+      if (!stage) return;
+
+      // Get all layers except background
+      const layers = stage.getLayers();
+      layers.forEach(layer => {
+        if (layer.name() === 'background') return; // Skip background layer
+        
+        const objects = layer.getChildren();
+        objects.forEach((obj) => {
+          if (selectedTool === 'select') {
+            // In select mode, all objects should be selectable
+            obj.draggable(true);
+          } else if (selectedTool === 'hand') {
+            // In hand mode, disable object selection to prevent conflicts with panning
+            obj.draggable(false);
+          } else if (selectedTool === 'frame') {
+            // In frame mode, no object should be selectable (not even frames)
+            obj.draggable(false);
+          } else {
+            // For other tools (text, etc.), disable selection temporarily
+            obj.draggable(false);
+          }
+        });
       });
       
       if (selectedTool === 'frame') {
         console.log('Frame mode: all objects unselectable (creation only)');
       }
       
-      fabricCanvas.renderAll();
+      stage.draw();
     };
 
     // Update all existing objects
@@ -50,10 +60,12 @@ export const useObjectStateManager = (
       updateObjectSelectability();
     };
 
-    fabricCanvas.on('object:added', handleObjectAdded);
+    stageRef.current.on('add', handleObjectAdded);
 
     return () => {
-      fabricCanvas.off('object:added', handleObjectAdded);
+      if (stageRef.current) {
+        stageRef.current.off('add', handleObjectAdded);
+      }
     };
-  }, [selectedTool, fabricCanvas]);
+  }, [selectedTool, stageRef]);
 };
