@@ -217,10 +217,10 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       return;
     }
     // Export the bounding box area as PNG
-    let base64Image = null;
+    let base64Sketch = null;
     try {
       const { left, top, width, height } = sketchBoundingBox;
-      base64Image = fabricCanvas.toDataURL({
+      base64Sketch = fabricCanvas.toDataURL({
         format: 'png',
         left,
         top,
@@ -228,11 +228,11 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
         height,
         multiplier: 1,
       });
-      setLastInputImage(base64Image);
+      setLastInputImage(base64Sketch);
       // Auto-download the image for debugging
-      if (base64Image) {
+      if (base64Sketch) {
         const link = document.createElement('a');
-        link.href = base64Image;
+        link.href = base64Sketch;
         link.download = 'openai-input.png';
         document.body.appendChild(link);
         link.click();
@@ -244,7 +244,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       console.error('[Sketch AI] Bounding box export error:', e);
       return;
     }
-    if (!base64Image) {
+    if (!base64Sketch) {
       alert('Failed to export bounding box area for AI generation.');
       setAiStatus('idle');
       return;
@@ -253,7 +253,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     const promptText = `Generate Image by redoing the flat sketch in the same style. ${details}`.trim();
     try {
       const result = await callOpenAIGptImage({
-        base64Image,
+        base64Sketch,
         promptText
       });
       console.log('[Sketch AI] OpenAI API full response:', result);
