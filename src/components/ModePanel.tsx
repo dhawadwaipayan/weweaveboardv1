@@ -250,7 +250,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       return;
     }
     // Prepare input for OpenAI
-    const promptText = `Generate Image by redoing the flat sketch in the same style. ${details}`.trim();
+    const promptText = `Generate an Image by redoing the flat sketch in the same style. The generated flat sketch should have only black lines. Consider if any annotations are given on the image to update those changes on the newly generated flat sketch. ${details}`.trim();
     try {
       const result = await callOpenAIGptImage({
         base64Sketch,
