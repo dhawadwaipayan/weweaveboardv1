@@ -32,7 +32,7 @@ export default async function handler(req, res) {
             role: 'user',
             content: [
               { type: 'text', text: promptText },
-              { type: 'image_url', image_url: base64Image }
+              { type: 'image_url', image_url: { url: base64Image } }
             ]
           }
         ],
