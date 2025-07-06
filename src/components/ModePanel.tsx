@@ -232,31 +232,46 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     };
   }, [showSketchSubBar, canvasRef]);
 
-  // Helper: Capture bounding box area using html2canvas
-  async function captureBoundingBoxAsBase64(boundingBoxRef, containerSelector) {
+  // Helper: Capture bounding box area using html2canvas (DOM-corrected)
+  async function captureBoundingBoxAsBase64(boundingBoxRef, canvasRef) {
     const box = boundingBoxRef.current;
     if (!box) throw new Error('No bounding box');
-    // Get DOM element for canvas container
-    const container = document.querySelector(containerSelector);
-    if (!container) throw new Error('Canvas container not found');
-    // Get bounding box coordinates in screen space
-    const rect = container.getBoundingClientRect();
+    // Get the actual <canvas> element
+    const fabricCanvas = canvasRef.current?.getFabricCanvas();
+    const lowerCanvasEl = fabricCanvas?.lowerCanvasEl;
+    if (!lowerCanvasEl) throw new Error('Fabric canvas element not found');
+    // Get DOM rect and scale factor
+    const domRect = lowerCanvasEl.getBoundingClientRect();
+    const fabricWidth = fabricCanvas.getWidth();
+    const fabricHeight = fabricCanvas.getHeight();
+    const domWidth = domRect.width;
+    const domHeight = domRect.height;
+    const scaleX = domWidth / fabricWidth;
+    const scaleY = domHeight / fabricHeight;
+    // Get bounding box in Fabric canvas coordinates
     const boxLeft = box.left * (box.scaleX ?? 1);
     const boxTop = box.top * (box.scaleY ?? 1);
     const boxWidth = box.width * (box.scaleX ?? 1);
     const boxHeight = box.height * (box.scaleY ?? 1);
-    // Convert box coordinates to absolute screen coordinates
-    const absLeft = rect.left + boxLeft;
-    const absTop = rect.top + boxTop;
-    // Use html2canvas to capture the container
-    const canvas = await html2canvas(container, {useCORS: true, backgroundColor: null});
+    // Convert to DOM coordinates
+    const cropLeft = domRect.left + boxLeft * scaleX;
+    const cropTop = domRect.top + boxTop * scaleY;
+    const cropWidth = boxWidth * scaleX;
+    const cropHeight = boxHeight * scaleY;
+    // Use html2canvas to capture the canvas container
+    const canvas = await html2canvas(lowerCanvasEl, {useCORS: true, backgroundColor: null});
     // Crop the canvas to the bounding box area
     const ctx = canvas.getContext('2d');
-    const imageData = ctx.getImageData(boxLeft, boxTop, boxWidth, boxHeight);
+    // Clamp crop area to canvas bounds
+    const sx = Math.max(0, Math.round(boxLeft * scaleX));
+    const sy = Math.max(0, Math.round(boxTop * scaleY));
+    const sw = Math.min(Math.round(cropWidth), canvas.width - sx);
+    const sh = Math.min(Math.round(cropHeight), canvas.height - sy);
+    const imageData = ctx.getImageData(sx, sy, sw, sh);
     // Create a new canvas for the cropped image
     const croppedCanvas = document.createElement('canvas');
-    croppedCanvas.width = boxWidth;
-    croppedCanvas.height = boxHeight;
+    croppedCanvas.width = sw;
+    croppedCanvas.height = sh;
     const croppedCtx = croppedCanvas.getContext('2d');
     croppedCtx.putImageData(imageData, 0, 0);
     return croppedCanvas.toDataURL('image/png');
@@ -282,7 +297,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     // Export the bounding box area as PNG using html2canvas
     let base64Sketch = null;
     try {
-      base64Sketch = await captureBoundingBoxAsBase64(boundingBoxRef, '.canvas-container');
+      base64Sketch = await captureBoundingBoxAsBase64(boundingBoxRef, canvasRef);
       setLastInputImage(base64Sketch);
       // Auto-download the image for debugging
       if (base64Sketch) {
@@ -382,7 +397,6 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
   };
 
   const handleRenderGenerate = async (details: string) => {
-    console.log('Render bounding box before export:', renderBoundingBox);
     setAiStatus('generating');
     setAiError(null);
     if (!canvasRef.current) {
@@ -402,7 +416,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     // Export the bounding box area as PNG using html2canvas
     let base64Sketch = null;
     try {
-      base64Sketch = await captureBoundingBoxAsBase64(boundingBoxRef, '.canvas-container');
+      base64Sketch = await captureBoundingBoxAsBase64(boundingBoxRef, canvasRef);
       setLastInputImage(base64Sketch);
       if (base64Sketch) {
         const link = document.createElement('a');
