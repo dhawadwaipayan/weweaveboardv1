@@ -101,15 +101,13 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     const handleMouseDown = (opt: any) => {
       if (boundingBoxDrawing.current) return;
       boundingBoxDrawing.current = true;
-      const vt = fabricCanvas.viewportTransform;
-      const invVt = fabric.util.invertTransform(vt);
-      const pointer = fabricCanvas.getPointer(opt.e);
-      const canvasPoint = fabric.util.transformPoint(new fabric.Point(pointer.x, pointer.y), invVt);
-      boundingBoxStart.current = { x: canvasPoint.x, y: canvasPoint.y };
+      const fabricCanvas = canvasRef.current.getFabricCanvas();
+      const pointer = fabricCanvas.getPointer(opt.e, true); // absolute canvas coordinates
+      boundingBoxStart.current = { x: pointer.x, y: pointer.y };
       removeBoundingBoxesByName(fabricCanvas, 'sketch-bounding-box');
       const rect = new fabric.Rect({
-        left: canvasPoint.x,
-        top: canvasPoint.y,
+        left: pointer.x,
+        top: pointer.y,
         width: 1,
         height: 1,
         fill: 'rgba(0,0,0,0.0)',
@@ -129,16 +127,13 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     const handleMouseMove = (opt: any) => {
       if (!boundingBoxDrawing.current || !boundingBoxRef.current || !boundingBoxStart.current) return;
       const fabricCanvas = canvasRef.current.getFabricCanvas();
-      const vt = fabricCanvas.viewportTransform;
-      const invVt = fabric.util.invertTransform(vt);
-      const pointer = fabricCanvas.getPointer(opt.e);
-      const canvasPoint = fabric.util.transformPoint(new fabric.Point(pointer.x, pointer.y), invVt);
+      const pointer = fabricCanvas.getPointer(opt.e, true); // absolute canvas coordinates
       const startX = boundingBoxStart.current.x;
       const startY = boundingBoxStart.current.y;
-      const left = Math.min(startX, canvasPoint.x);
-      const top = Math.min(startY, canvasPoint.y);
-      const width = Math.abs(canvasPoint.x - startX);
-      const height = Math.abs(canvasPoint.y - startY);
+      const left = Math.min(startX, pointer.x);
+      const top = Math.min(startY, pointer.y);
+      const width = Math.abs(pointer.x - startX);
+      const height = Math.abs(pointer.y - startY);
       boundingBoxRef.current.set({ left, top, width, height });
       fabricCanvas.renderAll();
     };
@@ -517,15 +512,13 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     const handleRenderMouseDown = (opt: any) => {
       if (boundingBoxDrawing.current) return;
       boundingBoxDrawing.current = true;
-      const vt = fabricCanvas.viewportTransform;
-      const invVt = fabric.util.invertTransform(vt);
-      const pointer = fabricCanvas.getPointer(opt.e);
-      const canvasPoint = fabric.util.transformPoint(new fabric.Point(pointer.x, pointer.y), invVt);
-      boundingBoxStart.current = { x: canvasPoint.x, y: canvasPoint.y };
+      const fabricCanvas = canvasRef.current.getFabricCanvas();
+      const pointer = fabricCanvas.getPointer(opt.e, true); // absolute canvas coordinates
+      boundingBoxStart.current = { x: pointer.x, y: pointer.y };
       removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
       const rect = new fabric.Rect({
-        left: canvasPoint.x,
-        top: canvasPoint.y,
+        left: pointer.x,
+        top: pointer.y,
         width: 1,
         height: 1,
         fill: 'rgba(0,0,0,0.0)',
@@ -545,16 +538,13 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     const handleRenderMouseMove = (opt: any) => {
       if (!boundingBoxDrawing.current || !boundingBoxRef.current || !boundingBoxStart.current) return;
       const fabricCanvas = canvasRef.current.getFabricCanvas();
-      const vt = fabricCanvas.viewportTransform;
-      const invVt = fabric.util.invertTransform(vt);
-      const pointer = fabricCanvas.getPointer(opt.e);
-      const canvasPoint = fabric.util.transformPoint(new fabric.Point(pointer.x, pointer.y), invVt);
+      const pointer = fabricCanvas.getPointer(opt.e, true); // absolute canvas coordinates
       const startX = boundingBoxStart.current.x;
       const startY = boundingBoxStart.current.y;
-      const left = Math.min(startX, canvasPoint.x);
-      const top = Math.min(startY, canvasPoint.y);
-      const width = Math.abs(canvasPoint.x - startX);
-      const height = Math.abs(canvasPoint.y - startY);
+      const left = Math.min(startX, pointer.x);
+      const top = Math.min(startY, pointer.y);
+      const width = Math.abs(pointer.x - startX);
+      const height = Math.abs(pointer.y - startY);
       boundingBoxRef.current.set({ left, top, width, height });
       fabricCanvas.renderAll();
     };
