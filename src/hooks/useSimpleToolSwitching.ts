@@ -1,103 +1,146 @@
-import { useEffect } from 'react';
-import { Canvas as FabricCanvas, PencilBrush } from 'fabric';
+import { useEffect, useRef } from 'react';
+import Konva from 'konva';
 
 export const useSimpleToolSwitching = (
-  fabricCanvas: FabricCanvas | null,
+  stageRef: React.RefObject<Konva.Stage>,
   selectedTool: string
 ) => {
+  const drawingModeRef = useRef(false);
+  const drawingLayerRef = useRef<Konva.Layer | null>(null);
+  const isDrawingRef = useRef(false);
+  const lastLineRef = useRef<Konva.Line | null>(null);
+
   useEffect(() => {
-    if (!fabricCanvas) return;
+    if (!stageRef.current) return;
 
     console.log('Simple tool switch to:', selectedTool);
+    const stage = stageRef.current;
 
-    // Configure ONLY canvas-level properties, never remove event handlers
+    // Get or create drawing layer
+    if (!drawingLayerRef.current) {
+      drawingLayerRef.current = stage.findOne('Layer[data-name="drawing"]') as Konva.Layer;
+      if (!drawingLayerRef.current) {
+        drawingLayerRef.current = new Konva.Layer({ name: 'drawing' });
+        stage.add(drawingLayerRef.current);
+      }
+    }
+
+    // Configure canvas-level properties based on selected tool
     switch (selectedTool) {
       case 'draw':
         console.log('Setting up drawing mode...');
+        drawingModeRef.current = true;
         
-        // Ensure we have a proper drawing brush
-        if (!fabricCanvas.freeDrawingBrush || !(fabricCanvas.freeDrawingBrush instanceof PencilBrush)) {
-          console.log('Creating new PencilBrush for drawing');
-          const brush = new PencilBrush(fabricCanvas);
-          brush.color = '#00FF00'; // Bright green for visibility
-          brush.width = 5;
-          fabricCanvas.freeDrawingBrush = brush;
-        } else {
-          // Update existing brush properties
-          fabricCanvas.freeDrawingBrush.color = '#00FF00';
-          fabricCanvas.freeDrawingBrush.width = 5;
-        }
+        // Set cursor
+        stage.container().style.cursor = 'crosshair';
         
-        // Enable drawing mode
-        fabricCanvas.isDrawingMode = true;
-        fabricCanvas.selection = false;
-        fabricCanvas.hoverCursor = 'crosshair';
-        fabricCanvas.moveCursor = 'crosshair';
-        
-        // Additional drawing mode configurations
-        fabricCanvas.skipTargetFind = true; // Prevent object selection during drawing
-        fabricCanvas.selection = false; // Disable selection
+        // Disable selection during drawing
+        stage.draggable(false);
         
         console.log('Drawing mode enabled:', {
-          isDrawingMode: fabricCanvas.isDrawingMode,
-          brush: fabricCanvas.freeDrawingBrush,
-          brushColor: fabricCanvas.freeDrawingBrush?.color,
-          brushWidth: fabricCanvas.freeDrawingBrush?.width,
-          selection: fabricCanvas.selection,
-          skipTargetFind: fabricCanvas.skipTargetFind
+          drawingMode: drawingModeRef.current,
+          cursor: stage.container().style.cursor,
+          draggable: stage.draggable()
         });
         break;
         
       case 'select':
-        fabricCanvas.isDrawingMode = false;
-        fabricCanvas.selection = true;
-        fabricCanvas.skipTargetFind = false;
-        fabricCanvas.hoverCursor = 'move';
-        fabricCanvas.moveCursor = 'move';
+        drawingModeRef.current = false;
+        stage.container().style.cursor = 'default';
+        stage.draggable(false);
         console.log('Select mode enabled');
         break;
         
       case 'hand':
-        fabricCanvas.isDrawingMode = false;
-        fabricCanvas.selection = false; // Disable selection for pure panning
-        fabricCanvas.skipTargetFind = true; // Prevent object targeting during panning
-        fabricCanvas.hoverCursor = 'grab';
-        fabricCanvas.moveCursor = 'grab';
-        fabricCanvas.defaultCursor = 'grab';
+        drawingModeRef.current = false;
+        stage.container().style.cursor = 'grab';
+        stage.draggable(true);
         console.log('Hand mode enabled:', {
-          selection: fabricCanvas.selection,
-          skipTargetFind: fabricCanvas.skipTargetFind,
-          hoverCursor: fabricCanvas.hoverCursor,
-          moveCursor: fabricCanvas.moveCursor
+          cursor: stage.container().style.cursor,
+          draggable: stage.draggable()
         });
         break;
         
       case 'frame':
-        fabricCanvas.isDrawingMode = false;
-        fabricCanvas.selection = false; // Disable canvas selection during frame creation
-        fabricCanvas.skipTargetFind = true; // Prevent object targeting during frame creation
-        fabricCanvas.hoverCursor = 'crosshair';
-        fabricCanvas.moveCursor = 'crosshair';
+        drawingModeRef.current = false;
+        stage.container().style.cursor = 'crosshair';
+        stage.draggable(false);
         console.log('Frame mode enabled - only frame creation allowed');
         break;
         
       case 'text':
-        fabricCanvas.isDrawingMode = false;
-        fabricCanvas.selection = false;
-        fabricCanvas.skipTargetFind = false;
-        fabricCanvas.hoverCursor = 'crosshair';
-        fabricCanvas.moveCursor = 'crosshair';
+        drawingModeRef.current = false;
+        stage.container().style.cursor = 'crosshair';
+        stage.draggable(false);
         break;
         
       default:
-        fabricCanvas.isDrawingMode = false;
-        fabricCanvas.selection = true;
-        fabricCanvas.skipTargetFind = false;
-        fabricCanvas.hoverCursor = 'move';
-        fabricCanvas.moveCursor = 'move';
+        drawingModeRef.current = false;
+        stage.container().style.cursor = 'default';
+        stage.draggable(false);
         break;
     }
 
-    fabricCanvas.renderAll();
-  }, [selectedTool, fabricCanvas]);
+    stage.draw();
+  }, [selectedTool, stageRef]);
+
+  // Drawing functionality
+  useEffect(() => {
+    if (!stageRef.current || !drawingLayerRef.current) return;
+    if (selectedTool !== 'draw') return;
+
+    const stage = stageRef.current;
+    const drawingLayer = drawingLayerRef.current;
+
+    const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (!drawingModeRef.current) return;
+      
+      isDrawingRef.current = true;
+      const pos = stage.getPointerPosition();
+      if (!pos) return;
+
+      lastLineRef.current = new Konva.Line({
+        stroke: '#00FF00',
+        strokeWidth: 5,
+        globalCompositeOperation: 'source-over',
+        points: [pos.x, pos.y, pos.x, pos.y],
+        draggable: false,
+        selectable: true,
+      });
+
+      drawingLayer.add(lastLineRef.current);
+      drawingLayer.draw();
+    };
+
+    const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (!isDrawingRef.current || !lastLineRef.current) return;
+
+      const pos = stage.getPointerPosition();
+      if (!pos) return;
+
+      const newPoints = lastLineRef.current.points().concat([pos.x, pos.y]);
+      lastLineRef.current.points(newPoints);
+      drawingLayer.batchDraw();
+    };
+
+    const handleMouseUp = () => {
+      isDrawingRef.current = false;
+      lastLineRef.current = null;
+    };
+
+    stage.on('mousedown', handleMouseDown);
+    stage.on('mousemove', handleMouseMove);
+    stage.on('mouseup', handleMouseUp);
+
+    return () => {
+      stage.off('mousedown', handleMouseDown);
+      stage.off('mousemove', handleMouseMove);
+      stage.off('mouseup', handleMouseUp);
+    };
+  }, [selectedTool, stageRef]);
+
+  return {
+    drawingMode: drawingModeRef.current,
+    drawingLayer: drawingLayerRef.current
+  };
 };

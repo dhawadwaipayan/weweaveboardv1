@@ -1,98 +1,77 @@
 import { useEffect, useState } from 'react';
+import Konva from 'konva';
 
-import { Canvas as FabricCanvas, Pattern, PencilBrush } from 'fabric';
-
-export const useCanvasInitialization = (canvasRef: React.RefObject<HTMLCanvasElement>) => {
-  const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
+export const useCanvasInitialization = (stageRef: React.RefObject<Konva.Stage>) => {
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!stageRef.current) return;
 
-    console.log('Initializing canvas with dimensions:', {
+    console.log('Initializing Konva stage with dimensions:', {
       windowWidth: window.innerWidth,
       windowHeight: window.innerHeight
     });
 
-    const canvas = new FabricCanvas(canvasRef.current, {
-      width: window.innerWidth,
-      height: window.innerHeight,
-      backgroundColor: '#1E1E1E',
-      preserveObjectStacking: true,
-      enableRetinaScaling: true,
-    });
+    const stage = stageRef.current;
 
-    // Create grid pattern using Fabric.js Pattern
+    // Create grid pattern
     const createGridPattern = () => {
-      const patternCanvas = document.createElement('canvas');
-      const patternCtx = patternCanvas.getContext('2d');
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
       const gridSize = 20;
       
-      patternCanvas.width = gridSize;
-      patternCanvas.height = gridSize;
+      canvas.width = gridSize;
+      canvas.height = gridSize;
       
-      if (patternCtx) {
-        patternCtx.fillStyle = '#1E1E1E';
-        patternCtx.fillRect(0, 0, gridSize, gridSize);
-        patternCtx.strokeStyle = '#333333';
-        patternCtx.lineWidth = 0.5;
-        patternCtx.beginPath();
-        patternCtx.moveTo(0, gridSize);
-        patternCtx.lineTo(gridSize, gridSize);
-        patternCtx.lineTo(gridSize, 0);
-        patternCtx.stroke();
+      if (ctx) {
+        ctx.fillStyle = '#1E1E1E';
+        ctx.fillRect(0, 0, gridSize, gridSize);
+        ctx.strokeStyle = '#333333';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(0, gridSize);
+        ctx.lineTo(gridSize, gridSize);
+        ctx.lineTo(gridSize, 0);
+        ctx.stroke();
       }
       
-      return patternCanvas;
+      return canvas;
     };
 
-    // Set grid background using Fabric.js Pattern
-    const gridCanvas = createGridPattern();
-    const pattern = new Pattern({
-      source: gridCanvas,
-      repeat: 'repeat'
-    });
-    canvas.backgroundColor = pattern;
+    // Set up grid background - this will be handled in the Canvas component
+    // The grid pattern is already set up in the Canvas component's JSX
 
-    // Initialize the freeDrawingBrush properly with PencilBrush
-    const brush = new PencilBrush(canvas);
-    brush.color = '#00FF00'; // Bright green for visibility
-    brush.width = 5;
-    canvas.freeDrawingBrush = brush;
-    
-    console.log('Canvas initialized with drawing brush:', {
-      brush: brush,
-      brushColor: brush.color,
-      brushWidth: brush.width,
-      canvasDimensions: {
-        width: canvas.width,
-        height: canvas.height,
-        getWidth: canvas.getWidth(),
-        getHeight: canvas.getHeight()
+    // Enable retina scaling
+    Konva.pixelRatio = window.devicePixelRatio || 1;
+
+    console.log('Konva stage initialized:', {
+      stage: stage,
+      pixelRatio: Konva.pixelRatio,
+      stageDimensions: {
+        width: stage.width(),
+        height: stage.height()
       }
     });
 
-    setFabricCanvas(canvas);
+    setIsInitialized(true);
 
     // Handle window resize
     const handleResize = () => {
       const newWidth = window.innerWidth;
       const newHeight = window.innerHeight;
-      console.log('Resizing canvas to:', { newWidth, newHeight });
+      console.log('Resizing Konva stage to:', { newWidth, newHeight });
       
-      canvas.setDimensions({
-        width: newWidth,
-        height: newHeight
-      });
-      canvas.renderAll();
+      stage.width(newWidth);
+      stage.height(newHeight);
+      stage.draw();
     };
 
     window.addEventListener('resize', handleResize);
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      canvas.dispose();
     };
-  }, [canvasRef]);
+  }, [stageRef]);
 
-  return fabricCanvas;
+  return isInitialized;
 };
